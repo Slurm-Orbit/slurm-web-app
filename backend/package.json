@@ -1,5 +1,15 @@
 {
+  "type": "module",
+  "scripts": {
+    "start": "node server.js start"
+  },
   "dependencies": {
-    "fastify": "^5.12.7"
+    "commander": "^15.0.0",
+    "slurmjs": "^1.0.0",
+    "socket.io-client": "^4.8.4"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "globals": "^17.13.0"
   }
 }
