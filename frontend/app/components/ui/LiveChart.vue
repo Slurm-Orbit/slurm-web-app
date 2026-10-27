@@ -11,14 +11,15 @@ const W = 300
 const H = 72
 const gid = `lg-${Math.random().toString(36).slice(2, 8)}`
 
+const toX = (i, len) => (len > 1 ? (i / (len - 1)) * W : W)
+const toY = (v) => H - (Math.min(props.max, Math.max(0, v)) / props.max) * H
+
+// null 采样点沿用上一个有效值，避免折线中断
 const points = computed(() => {
-  const list = props.data.length ? props.data : [null]
   let last = 0
-  return list.map((v, i) => {
-    if (v == null) v = last
-    last = v
-    const y = H - (Math.min(props.max, Math.max(0, v)) / props.max) * H
-    return [list.length > 1 ? (i / (list.length - 1)) * W : W, y]
+  return props.data.map((v, i) => {
+    last = v ?? last
+    return [toX(i, props.data.length), toY(last)]
   })
 })
 
@@ -28,16 +29,18 @@ const linePath = computed(() =>
 
 const areaPath = computed(() => {
   const pts = points.value
-  return `${linePath.value} L${pts[pts.length - 1][0]},${H} L${pts[0][0]},${H} Z`
+  if (!pts.length) return ''
+  const first = pts[0][0]
+  return `${linePath.value} L${pts[pts.length - 1][0]},${H} L${first},${H} Z`
 })
 
 const current = computed(() => [...props.data].reverse().find((v) => v != null) ?? null)
 </script>
 
 <template>
-  <div class="orbit-card p-4">
+  <UiCard class="p-4">
     <div class="mb-2 flex items-baseline justify-between gap-2">
-      <p class="orbit-label">{{ label }}</p>
+      <UiLabel>{{ label }}</UiLabel>
       <p class="text-sm font-medium text-white">
         {{ current == null ? '—' : `${current.toFixed(1)}${unit}` }}
       </p>
@@ -52,5 +55,5 @@ const current = computed(() => [...props.data].reverse().find((v) => v != null) 
       <path :d="areaPath" :fill="`url(#${gid})`" />
       <path :d="linePath" fill="none" :stroke="color" stroke-width="1.5" vector-effect="non-scaling-stroke" />
     </svg>
-  </div>
+  </UiCard>
 </template>

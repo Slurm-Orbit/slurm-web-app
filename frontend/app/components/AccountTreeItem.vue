@@ -1,23 +1,27 @@
 <script setup>
 defineOptions({ name: 'AccountTreeItem' })
 
-defineProps({
+const props = defineProps({
   account: { type: Object, required: true },
   admin: { type: Boolean, default: false },
   editing: { type: Object, default: null },
   acting: { type: String, default: '' }
 })
 
-const emit = defineEmits(['edit', 'save', 'cancel', 'remove'])
+const emit = defineEmits(['edit', 'save', 'cancel', 'remove', 'update:editing'])
 
 const expanded = ref(true)
+const editingModel = computed({
+  get: () => props.editing,
+  set: (value) => emit('update:editing', value)
+})
 </script>
 
 <template>
   <div>
-    <div class="orbit-card flex items-center gap-3 px-4 py-3 transition hover:border-orbit-accent/25">
+    <UiCard class="flex items-center gap-3 px-4 py-3 transition hover:border-orbit-accent/25">
       <button
-        v-if="account.children?.length"
+        v-if="account.children.length"
         type="button"
         class="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-orbit-muted
                transition hover:bg-white/5 hover:text-white"
@@ -51,29 +55,16 @@ const expanded = ref(true)
         </div>
 
         <div v-if="editing?.name === account.name" class="mt-1.5 flex items-center gap-1.5">
-          <input
-            v-model="editing.set"
-            type="text"
-            class="orbit-input-sm min-w-0 flex-1"
+          <UiInput
+            :model-value="editing.set"
+            size="sm"
+            class="min-w-0 flex-1"
             :disabled="!!acting"
+            @update:model-value="emit('update:editing', { ...editing, set: $event })"
             @keydown.enter.prevent="emit('save')"
           />
-          <button
-            type="button"
-            class="orbit-chip shrink-0 border-orbit-ok/40 text-orbit-ok hover:border-orbit-ok/70"
-            :disabled="!!acting"
-            @click="emit('save')"
-          >
-            保存
-          </button>
-          <button
-            type="button"
-            class="orbit-chip shrink-0 hover:border-orbit-accent/50 hover:text-white"
-            :disabled="!!acting"
-            @click="emit('cancel')"
-          >
-            取消
-          </button>
+          <UiChip tone="ok" class="shrink-0" :disabled="!!acting" @click="emit('save')">保存</UiChip>
+          <UiChip tone="accent" class="shrink-0" :disabled="!!acting" @click="emit('cancel')">取消</UiChip>
         </div>
         <p v-else class="mt-1 truncate text-xs text-orbit-muted" :title="account.description">
           {{ account.description || '—' }}
@@ -81,27 +72,19 @@ const expanded = ref(true)
       </div>
 
       <div v-if="admin && editing?.name !== account.name" class="flex shrink-0 items-center gap-1.5">
-        <button
-          type="button"
-          class="orbit-chip hover:border-orbit-accent/50 hover:text-white"
-          :disabled="!!acting"
-          @click="emit('edit', account)"
-        >
-          修改
-        </button>
-        <button
+        <UiChip tone="accent" :disabled="!!acting" @click="emit('edit', account)">修改</UiChip>
+        <UiChip
           v-if="account.name !== 'root'"
-          type="button"
-          class="orbit-chip hover:border-orbit-danger/50 hover:text-orbit-danger"
+          tone="danger"
           :disabled="!!acting"
           @click="emit('remove', account)"
         >
           删除
-        </button>
+        </UiChip>
       </div>
-    </div>
+    </UiCard>
 
-    <div v-if="expanded && account.children?.length">
+    <div v-if="expanded && account.children.length">
       <div
         v-for="(child, index) in account.children"
         :key="child.name"
@@ -118,9 +101,9 @@ const expanded = ref(true)
         />
         <span class="absolute left-5 top-11 h-px w-7 -translate-y-1/2 bg-orbit-line" aria-hidden="true" />
         <AccountTreeItem
+          v-model:editing="editingModel"
           :account="child"
           :admin="admin"
-          :editing="editing"
           :acting="acting"
           @edit="emit('edit', $event)"
           @save="emit('save')"

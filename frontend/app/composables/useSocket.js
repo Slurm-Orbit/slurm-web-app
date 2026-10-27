@@ -12,32 +12,27 @@ export function useSocket() {
   const status = useState('socket.status', () => 'idle')
   const backends = useState('socket.backends', () => [])
   const selected = useState('socket.selected', () => null)
-  const sessionToken = useState('socket.sessionToken', () => null)
   const router = useRouter()
 
   function connect() {
     if (!import.meta.client) return
-
     if (socket) {
-      socket.removeAllListeners()
-      socket.disconnect()
-      socket = null
+      socket.connect()
+      return
     }
 
     status.value = 'connecting'
-    backends.value = []
 
     socket = io({
       path: '/socket.io/',
       auth: { role: 'browser' },
-      query: { role: 'browser' },
       timeout: 8000,
       reconnectionAttempts: Infinity,
       transports: ['websocket', 'polling']
     })
 
-    // 等 gateway:ready 再标 ready，避免短暂空窗
-    socket.on('gateway:ready', (payload) => {
+    // 连上后先取一次全量快照，之后靠 backends:update 增量推送
+    socket.on('backends:snapshot', (payload) => {
       status.value = 'ready'
       backends.value = payload?.backends ?? []
     })
@@ -47,58 +42,50 @@ export function useSocket() {
     })
 
     socket.on('disconnect', (reason) => {
-      const hadSession = !!sessionToken.value
+      const hadSession = !!selected.value
       backends.value = []
       selected.value = null
-      sessionToken.value = null
       // 网关主动断开：当成没有 agent，不再进入离线
       status.value = reason === 'io server disconnect' ? 'ready' : 'connecting'
       if (hadSession) router.push('/')
     })
   }
 
-  /** 携带访问密钥请求进入指定后端（网关转发 agent 校验） */
-  function selectBackend(id, password) {
+  /** 经网关发请求，返回完整 ack（{ ok, data | error }） */
+  function request(event, payload, timeoutMs = 12000) {
     return new Promise((resolve, reject) => {
-      if (!socket || status.value !== 'ready') {
-        reject(new Error('gateway not ready'))
-        return
-      }
-      if (!password) {
-        reject(new Error('access key required'))
-        return
-      }
-      socket.timeout(8000).emit('backend:select', { id, password }, (err, res) => {
-        if (err) return reject(new Error('gateway timeout'))
-        if (!res?.ok) return reject(new Error(res?.error || 'access rejected'))
-        selected.value = res.backend
-        sessionToken.value = res.token || null
-        resolve(res.backend)
-      })
-    })
-  }
-
-  /** 供路由中间件确认当前页会话仍有效 */
-  function hasSession(backendId) {
-    return !!(
-      sessionToken.value &&
-      selected.value?.id === backendId
-    )
-  }
-
-  /** 经网关向当前会话的 agent 发请求并取回 data */
-  function agentRequest(event, payload, timeoutMs = 12000) {
-    return new Promise((resolve, reject) => {
-      if (!socket || status.value !== 'ready') {
+      if (status.value !== 'ready') {
         reject(new Error('gateway not ready'))
         return
       }
       socket.timeout(timeoutMs).emit(event, payload, (err, res) => {
         if (err) return reject(new Error('gateway timeout'))
         if (!res?.ok) return reject(new Error(res?.error || 'request failed'))
-        resolve(res.data)
+        resolve(res)
       })
     })
+  }
+
+  /** 携带访问密钥请求进入指定后端（网关转发 agent 校验后建立会话） */
+  async function openSession(id, password) {
+    const res = await request('session:open', { id, password }, 8000)
+    selected.value = res.backend
+    return res.backend
+  }
+
+  /** 网关推送的最新 meta，离线时退回选择时的会话快照 */
+  function backendMeta(id) {
+    return backends.value.find((b) => b.id === id) || selected.value
+  }
+
+  /** 供路由中间件确认当前页会话仍有效 */
+  function hasSession(backendId) {
+    return selected.value?.id === backendId
+  }
+
+  /** 经网关向当前会话的 agent 发请求并取回 data */
+  async function agentRequest(event, payload) {
+    return (await request(event, payload)).data
   }
 
   /** slurmjs 调用，每个信号独立 */
@@ -124,10 +111,10 @@ export function useSocket() {
   return {
     status,
     backends,
-    selected,
     connect,
-    selectBackend,
+    openSession,
     hasSession,
+    backendMeta,
     slurm
   }
 }

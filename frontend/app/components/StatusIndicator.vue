@@ -1,6 +1,6 @@
 <script setup>
 const props = defineProps({
-  count: { default: 0 }
+  count: { type: Number, default: 0 }
 })
 
 const online = computed(() => props.count > 0)

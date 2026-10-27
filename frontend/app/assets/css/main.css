@@ -1,43 +1,14 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
-@layer components {
-  .orbit-card {
-    @apply rounded-2xl border border-orbit-line bg-orbit-card backdrop-blur-md;
-  }
-
-  .orbit-btn {
-    @apply rounded-xl border border-orbit-line bg-orbit-card px-4 py-2 text-sm text-orbit-text transition hover:border-orbit-accent/40 disabled:opacity-50;
-  }
-  .orbit-btn-accent {
-    @apply border-orbit-accent/30 text-orbit-accent hover:border-orbit-accent/60;
-  }
-  .orbit-chip {
-    @apply rounded-lg border border-orbit-line px-2 py-1 text-xs text-orbit-muted transition disabled:opacity-50;
-  }
-
-  .orbit-input {
-    @apply w-full rounded-xl border border-orbit-line bg-black/30 px-3 py-2.5 text-sm text-orbit-text outline-none transition placeholder:text-orbit-muted/50 focus:border-orbit-accent/50 focus:shadow-[0_0_0_3px_rgba(220,220,230,0.18)] disabled:opacity-50;
-  }
-  .orbit-input-sm {
-    @apply rounded-lg border border-orbit-line bg-black/30 px-2 py-1 text-xs text-orbit-text outline-none transition focus:border-orbit-accent/50 disabled:opacity-50;
-  }
-
-  .orbit-label {
-    @apply text-[11px] uppercase tracking-wider text-orbit-muted;
-  }
-
-  .orbit-alert {
-    @apply rounded-xl border px-4 py-3 text-sm;
-  }
-  .orbit-alert-error {
-    @apply border-orbit-danger/30 bg-orbit-danger/10 text-orbit-danger;
-  }
-  .orbit-alert-ok {
-    @apply border-orbit-ok/30 bg-orbit-ok/10 text-orbit-ok;
-  }
-  .orbit-alert-warn {
-    @apply border-orbit-warn/30 bg-orbit-warn/10 text-orbit-warn;
-  }
+@theme {
+  --color-orbit-bg: #030610;
+  --color-orbit-elevated: #050a14;
+  --color-orbit-card: rgba(6, 14, 28, 0.78);
+  --color-orbit-line: rgba(255, 255, 255, 0.14);
+  --color-orbit-text: #e8e8ec;
+  --color-orbit-muted: #9a9ea6;
+  --color-orbit-accent: #f4f4f5;
+  --color-orbit-ok: #3cbe7a;
+  --color-orbit-danger: #ff3b5c;
+  --color-orbit-warn: #ffb020;
 }

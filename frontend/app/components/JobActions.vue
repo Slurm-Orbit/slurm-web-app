@@ -10,31 +10,10 @@ const pending = computed(() => jobStatus(props.job.status).toLowerCase().include
 
 <template>
   <div class="flex flex-wrap items-center gap-1.5">
-    <button
-      v-if="pending"
-      type="button"
-      class="orbit-chip hover:border-orbit-warn/50 hover:text-orbit-warn"
-      :disabled="!!acting"
-      @click.stop="emit('hold', job)"
-    >
-      挂起
-    </button>
-    <button
-      v-if="pending"
-      type="button"
-      class="orbit-chip hover:border-orbit-ok/50 hover:text-orbit-ok"
-      :disabled="!!acting"
-      @click.stop="emit('release', job)"
-    >
-      释放
-    </button>
-    <button
-      type="button"
-      class="orbit-chip hover:border-orbit-danger/50 hover:text-orbit-danger"
-      :disabled="!!acting"
-      @click.stop="emit('cancel', job)"
-    >
-      取消
-    </button>
+    <template v-if="pending">
+      <UiChip tone="warn" :disabled="!!acting" @click.stop="emit('hold', job)">挂起</UiChip>
+      <UiChip tone="ok" :disabled="!!acting" @click.stop="emit('release', job)">释放</UiChip>
+    </template>
+    <UiChip tone="danger" :disabled="!!acting" @click.stop="emit('cancel', job)">取消</UiChip>
   </div>
 </template>

@@ -1,8 +1,8 @@
 <script setup>
 const props = defineProps({
-  backend: { required: true },
-  entering: { default: false },
-  error: { default: '' }
+  backend: { type: Object, required: true },
+  entering: { type: Boolean, default: false },
+  error: { type: String, default: '' }
 })
 
 const emit = defineEmits(['enter'])
@@ -16,30 +16,26 @@ function submit() {
 </script>
 
 <template>
-  <div
-    class="orbit-card relative flex w-full flex-col overflow-hidden p-5 text-left transition-shadow duration-200
+  <UiCard
+    class="relative flex w-full flex-col overflow-hidden p-5 text-left transition-shadow duration-200
            hover:shadow-[0_0_0_1px_rgba(220,220,230,0.35),0_12px_40px_rgba(200,205,220,0.22)]"
-    :class="{
-      'shadow-[0_0_0_1px_rgba(220,220,230,0.4),0_12px_40px_rgba(200,205,220,0.28)]': entering
-    }"
+    :class="entering && 'shadow-[0_0_0_1px_rgba(220,220,230,0.4),0_12px_40px_rgba(200,205,220,0.28)]'"
   >
     <div class="mb-4 flex items-start justify-between gap-3">
       <div>
-        <p class="orbit-label">Agent</p>
+        <UiLabel>Agent</UiLabel>
         <h3 class="mt-1 text-lg font-semibold tracking-tight text-white">{{ backend.id }}</h3>
       </div>
     </div>
 
-    <label class="orbit-label mb-1 block" :for="`pw-${backend.id}`">
-      Access key
-    </label>
-    <input
+    <UiLabel as="label" class="mb-1" :for="`pw-${backend.id}`">Access key</UiLabel>
+    <UiInput
       :id="`pw-${backend.id}`"
       v-model="password"
       type="password"
       autocomplete="off"
       placeholder="••••••••"
-      class="orbit-input mb-3"
+      class="mb-3 w-full"
       :disabled="entering"
       @keydown.enter.prevent="submit"
     />
@@ -58,5 +54,5 @@ function submit() {
       </span>
       <span class="text-orbit-muted">→</span>
     </button>
-  </div>
+  </UiCard>
 </template>

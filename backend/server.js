@@ -14,7 +14,9 @@ async function detectEnv() {
     try {
         await slurmjs.getSlurmVersion();
         slurmInstalled = true;
-    } catch {}
+    } catch {
+        console.error("[agent] slurm not installed");
+    }
     const isRoot =
         typeof process.getuid === "function" && process.getuid() === 0;
     return { slurmInstalled, isRoot };
@@ -86,8 +88,7 @@ async function connect(url, options) {
             if (buf.length) await handle.read(buf, 0, buf.length, start);
             return { path, size, truncated: start > 0, content: buf.toString("utf-8") };
         } catch (err) {
-            if (err.code === "ENOENT") throw new Error("输出文件尚不存在");
-            throw new Error(`读取失败：${err.message}`);
+            throw new Error(`读取失败：${err.message}`, { cause: err });
         } finally {
             await handle?.close();
         }

@@ -22,7 +22,7 @@ const color = computed(() => {
 </script>
 
 <template>
-  <div class="orbit-card flex flex-col items-center justify-center p-5">
+  <UiCard class="flex flex-col items-center justify-center p-5">
     <div class="relative">
       <svg width="112" height="112" viewBox="0 0 100 100">
         <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="8" />
@@ -49,5 +49,5 @@ const color = computed(() => {
     </div>
     <p class="mt-2 text-sm font-medium text-white">{{ label }}</p>
     <p v-if="sub" class="mt-0.5 max-w-full truncate text-xs text-orbit-muted" :title="sub">{{ sub }}</p>
-  </div>
+  </UiCard>
 </template>

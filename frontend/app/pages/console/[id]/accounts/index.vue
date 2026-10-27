@@ -1,20 +1,17 @@
 <script setup>
 definePageMeta({ middleware: 'console-auth', layout: 'console', title: '账户' })
 
-const { slurm, selected } = useSocket()
+const route = useRoute()
+const { slurm, backendMeta } = useSocket()
+const { error, notice, acting, run } = useAction(refresh)
 
 const loading = ref(false)
-const error = ref('')
-const notice = ref('')
 const rows = ref([])
 const updatedAt = ref(null)
-
-const admin = computed(() => !!selected.value?.isRoot)
+const admin = computed(() => !!backendMeta(route.params.id)?.isRoot)
 const showAdd = ref(false)
 const form = ref({ name: '', parent: '', description: '' })
-const submitting = ref(false)
 const editing = ref(null)
-const acting = ref('')
 
 const tree = computed(() => {
   const map = new Map(rows.value.map((account) => [account.name, { ...account, children: [] }]))
@@ -46,61 +43,28 @@ async function refresh() {
 
 async function addAccount() {
   const name = form.value.name.trim()
-  if (!name || submitting.value) return
-  submitting.value = true
-  error.value = ''
-  notice.value = ''
-  try {
-    await slurm.addAccount(name, form.value.parent.trim(), form.value.description.trim())
-    notice.value = `已创建账户 ${name}`
-    showAdd.value = false
-    form.value = { name: '', parent: '', description: '' }
-    await refresh()
-  } catch (e) {
-    error.value = e.message
-  } finally {
-    submitting.value = false
-  }
+  if (!name) return
+  const ok = await run('add', () => slurm.addAccount(name, form.value.parent.trim(), form.value.description.trim()), `已创建账户 ${name}`)
+  if (!ok) return
+  showAdd.value = false
+  form.value = { name: '', parent: '', description: '' }
 }
 
 function startEdit(row) {
   editing.value = { name: row.name, set: row.description || '' }
-  notice.value = ''
-  error.value = ''
 }
 
 async function saveEdit() {
-  if (!editing.value || acting.value) return
-  acting.value = editing.value.name
-  error.value = ''
-  notice.value = ''
-  try {
-    await slurm.modifyAccount(editing.value.name, editing.value.set)
-    notice.value = `已更新账户 ${editing.value.name}`
+  const { name, set } = editing.value
+  if (await run(name, () => slurm.modifyAccount(name, set), `已更新账户 ${name}`)) {
     editing.value = null
-    await refresh()
-  } catch (e) {
-    error.value = e.message
-  } finally {
-    acting.value = ''
   }
 }
 
 async function removeAccount(row) {
-  if (acting.value || row.name === 'root') return
+  if (row.name === 'root') return
   if (!window.confirm(`确定删除账户 ${row.name}？该操作不可恢复。`)) return
-  acting.value = row.name
-  error.value = ''
-  notice.value = ''
-  try {
-    await slurm.deleteAccount(row.name)
-    notice.value = `已删除账户 ${row.name}`
-    await refresh()
-  } catch (e) {
-    error.value = e.message
-  } finally {
-    acting.value = ''
-  }
+  await run(row.name, () => slurm.deleteAccount(row.name), `已删除账户 ${row.name}`)
 }
 
 onMounted(refresh)
@@ -109,82 +73,57 @@ onMounted(refresh)
 <template>
   <div class="mt-6">
     <UiToolbar :loading="loading" :updated-at="updatedAt" @refresh="refresh">
-      <button
-        v-if="admin"
-        type="button"
-        class="orbit-btn orbit-btn-accent"
-        @click="showAdd = !showAdd"
-      >
+      <UiButton v-if="admin" variant="accent" @click="showAdd = !showAdd">
         {{ showAdd ? '收起新增' : '新增账户' }}
-      </button>
+      </UiButton>
       <span class="text-xs text-orbit-muted">{{ rows.length }} 个账户</span>
     </UiToolbar>
 
     <!-- 新增账户 -->
-    <div v-if="showAdd && admin" class="orbit-card mb-4 p-4">
+    <UiCard v-if="showAdd && admin" class="mb-4 p-4">
       <div class="flex flex-wrap items-end gap-3">
         <label class="flex flex-col gap-1">
-          <span class="orbit-label">账户名</span>
-          <input
-            v-model="form.name"
-            type="text"
-            placeholder="如 project_a"
-            class="orbit-input w-48"
-            :disabled="submitting"
-          />
+          <UiLabel>账户名</UiLabel>
+          <UiInput v-model="form.name" placeholder="如 project_a" class="w-48" :disabled="!!acting" />
         </label>
         <label class="flex flex-col gap-1">
-          <span class="orbit-label">父账户</span>
-          <input
-            v-model="form.parent"
-            type="text"
-            placeholder="如 root"
-            class="orbit-input w-40"
-            :disabled="submitting"
-          />
+          <UiLabel>父账户</UiLabel>
+          <UiInput v-model="form.parent" placeholder="如 root" class="w-40" :disabled="!!acting" />
         </label>
         <label class="flex flex-1 flex-col gap-1">
-          <span class="orbit-label">描述</span>
-          <input
+          <UiLabel>描述</UiLabel>
+          <UiInput
             v-model="form.description"
-            type="text"
             placeholder="账户描述"
-            class="orbit-input min-w-[200px]"
-            :disabled="submitting"
+            class="w-full min-w-[200px]"
+            :disabled="!!acting"
             @keydown.enter.prevent="addAccount"
           />
         </label>
-        <button
-          type="button"
-          class="orbit-btn orbit-btn-accent"
-          :disabled="submitting || !form.name.trim()"
-          @click="addAccount"
-        >
-          {{ submitting ? '创建中…' : '创建' }}
-        </button>
+        <UiButton variant="accent" :disabled="!!acting || !form.name.trim()" @click="addAccount">
+          {{ acting === 'add' ? '创建中…' : '创建' }}
+        </UiButton>
       </div>
-    </div>
+    </UiCard>
 
     <UiAlert v-if="notice" type="ok" class="mb-4">{{ notice }}</UiAlert>
     <UiAlert v-if="error" class="mb-4">{{ error }}</UiAlert>
 
-    <section>
-      <div v-if="tree.length" class="space-y-3 py-2">
-        <AccountTreeItem
-          v-for="account in tree"
-          :key="account.name"
-          :account="account"
-          :admin="admin"
-          :editing="editing"
-          :acting="acting"
-          @edit="startEdit"
-          @save="saveEdit"
-          @cancel="editing = null"
-          @remove="removeAccount"
-        />
-      </div>
+    <div v-if="tree.length" class="space-y-3 py-2">
+      <AccountTreeItem
+        v-for="account in tree"
+        :key="account.name"
+        v-model:editing="editing"
+        :account="account"
+        :admin="admin"
+        :acting="acting"
+        @edit="startEdit"
+        @save="saveEdit"
+        @cancel="editing = null"
+        @remove="removeAccount"
+      />
+    </div>
 
-      <UiEmpty v-else-if="!loading" class="px-5 py-10">暂无账户</UiEmpty>
-    </section>
+    <UiEmpty v-else-if="!loading" class="px-5 py-10">暂无账户</UiEmpty>
   </div>
 </template>

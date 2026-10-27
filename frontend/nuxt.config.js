@@ -1,11 +1,14 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
+import eslint from '@nuxt/eslint'
+import tailwindcss from '@tailwindcss/vite'
+
 export default defineNuxtConfig({
-  modules: ['@nuxtjs/tailwindcss'],
+  modules: [eslint],
+  css: ['~/assets/css/main.css'],
   compatibilityDate: '2025-07-15',
   devtools: { enabled: false },
-  tailwindcss: {
-    configPath: './tailwind.config.js',
-    cssPath: '~/assets/css/main.css'
+  vite: {
+    plugins: [tailwindcss()]
   },
   nitro: {
     experimental: {

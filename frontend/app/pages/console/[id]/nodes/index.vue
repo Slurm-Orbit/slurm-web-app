@@ -13,9 +13,8 @@ const updatedAt = ref(null)
 const groups = computed(() => {
   const map = new Map()
   for (const node of nodes.value) {
-    const parts = (Array.isArray(node.partitions) ? node.partitions : String(node.partitions || '').split(','))
-      .map((part) => String(part).trim())
-      .filter(Boolean)
+    // scontrol 的 partitions 可能是数组或逗号分隔字符串，统一按逗号拆分
+    const parts = String(node.partitions || '').split(',').map((part) => part.trim()).filter(Boolean)
     for (const part of parts.length ? parts : ['未分区']) {
       if (!map.has(part)) map.set(part, [])
       map.get(part).push(node)
@@ -62,7 +61,7 @@ onMounted(refresh)
           <h3 class="text-sm font-medium text-white">{{ group.name }}</h3>
           <span class="text-xs text-orbit-muted">{{ group.nodes.length }} 个节点</span>
         </div>
-        <div class="orbit-card overflow-x-auto">
+        <UiCard class="overflow-x-auto">
           <table class="w-full min-w-[520px] table-fixed text-left text-sm">
             <thead>
               <tr class="border-b border-orbit-line text-[11px] uppercase tracking-wider text-orbit-muted">
@@ -83,7 +82,7 @@ onMounted(refresh)
                 @click="openNode(node)"
               >
                 <td class="truncate px-3 py-3 font-medium text-white" :title="node.name">{{ node.name }}</td>
-                <td class="truncate px-3 py-3" :class="nodeStateClass(node.state)">{{ fmt(node.state) }}</td>
+                <td class="truncate px-3 py-3" :class="stateClass(node.state)">{{ fmt(node.state) }}</td>
                 <td class="px-3 py-3 text-orbit-muted" :title="`空闲 ${node.idleCpus}`">{{ node.allocCpus }}/{{ node.cpus }}</td>
                 <td class="px-3 py-3 text-orbit-muted">{{ fmtLoad(node.cpuLoad) }}</td>
                 <td class="truncate px-3 py-3 text-orbit-muted">{{ fmtSize(node.freeMem) }} / {{ fmtSize(node.realMemory) }}</td>
@@ -94,7 +93,7 @@ onMounted(refresh)
               </tr>
             </tbody>
           </table>
-        </div>
+        </UiCard>
       </section>
       <UiEmpty v-if="!groups.length && !loading">暂无节点信息</UiEmpty>
     </div>

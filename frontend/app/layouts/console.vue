@@ -1,13 +1,9 @@
 <script setup>
 const route = useRoute()
-const { status, backends, selected, connect } = useSocket()
+const { status, backendMeta, connect } = useSocket()
 
 const backendId = route.params.id
-
-// 优先用网关推送的最新 meta，agent 离线时退回会话内快照
-const backend = computed(
-  () => backends.value.find((b) => b.id === backendId) || selected.value
-)
+const backend = computed(() => backendMeta(backendId))
 
 // loading: 等待后端环境信息；console: 已安装；install: 未安装但 root（管理/安装界面）；error: 未安装且非 root
 const viewState = computed(() => {
@@ -54,7 +50,7 @@ onMounted(() => {
         <h1 class="min-w-0 flex-1 truncate text-base font-semibold tracking-tight text-white lg:mt-4 lg:text-lg">
           {{ backend?.id || backendId }}
         </h1>
-        <p class="hidden text-[11px] uppercase tracking-wider text-orbit-muted lg:mt-1 lg:block">Console</p>
+        <UiLabel class="hidden lg:mt-1 lg:block">Console</UiLabel>
         <div v-if="backend" class="flex shrink-0 gap-1.5 lg:mt-3 lg:flex-wrap">
           <span
             v-if="!backend.slurmInstalled"
@@ -98,7 +94,7 @@ onMounted(() => {
 
       <!-- 未安装且非 root：错误界面 -->
       <div v-else-if="viewState === 'error'" class="flex flex-1 items-center justify-center">
-        <div class="orbit-card max-w-md p-8 text-center shadow-glow">
+        <UiCard glow class="max-w-md p-8 text-center">
           <div class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full border border-orbit-danger/40 bg-orbit-danger/10 text-xl text-orbit-danger">
             ✕
           </div>
@@ -106,7 +102,7 @@ onMounted(() => {
           <p class="mt-3 text-sm leading-relaxed text-orbit-muted">
             该后端主机未检测到 Slurm 环境，控制台暂不可用。请联系管理员在主机上完成安装后重试。
           </p>
-        </div>
+        </UiCard>
       </div>
 
       <!-- 未安装但 root：安装界面 -->

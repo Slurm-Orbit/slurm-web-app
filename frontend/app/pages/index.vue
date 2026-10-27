@@ -1,5 +1,5 @@
 <script setup>
-const { status, backends, connect, selectBackend } = useSocket()
+const { status, backends, connect, openSession } = useSocket()
 
 const enteringId = ref(null)
 const cardErrors = ref({})
@@ -13,12 +13,12 @@ onMounted(() => connect())
 async function enter({ backend, password }) {
   if (enteringId.value) return
   enteringId.value = backend.id
-  cardErrors.value = { ...cardErrors.value, [backend.id]: '' }
+  cardErrors.value[backend.id] = ''
   try {
-    await selectBackend(backend.id, password)
+    await openSession(backend.id, password)
     await navigateTo(`/console/${backend.id}`)
   } catch (e) {
-    cardErrors.value = { ...cardErrors.value, [backend.id]: e.message }
+    cardErrors.value[backend.id] = e.message
   } finally {
     enteringId.value = null
   }
@@ -26,13 +26,19 @@ async function enter({ backend, password }) {
 </script>
 
 <template>
-  <div class="relative isolate min-h-screen">
-    <BinaryField />
+  <div class="fixed inset-0 overflow-hidden">
+    <div class="pointer-events-none absolute inset-0 z-0 overflow-hidden" aria-hidden="true">
+      <BackdropAmbientLight class="absolute -left-24 -top-32 h-[420px] w-[420px] bg-white/10 blur-[130px]" />
+      <BackdropAmbientLight class="absolute -right-16 -bottom-40 h-[520px] w-[520px] bg-white/[0.06] blur-[150px]" />
+      <BackdropAmbientLight class="absolute left-1/2 top-[28%] h-[260px] w-[520px] -translate-x-1/2 bg-white/[0.04] blur-[110px]" />
+      <BackdropGrid />
+      <BackdropBinaryField />
+    </div>
 
-    <div class="relative z-10 mx-auto flex min-h-screen w-full max-w-5xl flex-col px-6 py-8 sm:px-10">
+    <div class="relative z-10 mx-auto flex min-h-full w-full max-w-5xl flex-col px-6 py-8 sm:px-10">
       <header class="flex items-center justify-between gap-4">
         <div class="flex items-center gap-3">
-          <img src="/icon.svg" alt="" class="h-8 w-8 brightness-0 invert opacity-90" />
+          <img src="/icon.svg" alt="" class="h-8 w-8 brightness-0 invert opacity-90">
           <div>
             <p class="text-sm font-semibold tracking-tight text-white">Slurm Orbital</p>
             <p class="text-xs text-orbit-muted">Distributed compute gateway</p>
@@ -53,10 +59,7 @@ async function enter({ backend, password }) {
         </div>
 
         <!-- Waiting -->
-        <section
-          v-if="waitingForAgent"
-          class="max-w-lg rounded-2xl border border-orbit-line bg-orbit-card p-7 shadow-glow backdrop-blur-md"
-        >
+        <UiCard v-if="waitingForAgent" glow class="max-w-lg p-7">
           <div class="flex items-start gap-4">
             <UiSpinner class="mt-0.5" />
             <div>
@@ -74,7 +77,7 @@ async function enter({ backend, password }) {
               </p>
             </div>
           </div>
-        </section>
+        </UiCard>
 
         <!-- Backends -->
         <section v-else>

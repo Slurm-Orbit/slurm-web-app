@@ -2,7 +2,7 @@
 definePageMeta({ middleware: 'console-auth', layout: 'console', title: '节点详情' })
 
 const route = useRoute()
-const { slurm, selected } = useSocket()
+const { slurm, backendMeta } = useSocket()
 
 const NODE_ACTIONS = [
   { state: 'RESUME', label: '恢复', hint: '清除排空或下线状态，重新接受作业' },
@@ -11,16 +11,14 @@ const NODE_ACTIONS = [
 ]
 
 const nodeName = String(route.params.nodeName)
-const admin = computed(() => !!selected.value?.isRoot)
+const admin = computed(() => !!backendMeta(route.params.id)?.isRoot)
 
 const loading = ref(false)
 const error = ref('')
 const info = ref(null)
 const updatedAt = ref(null)
 
-const acting = ref('')
-const actionError = ref('')
-const actionNotice = ref('')
+const { notice: actionNotice, error: actionError, acting, run } = useAction(refresh)
 const menuOpen = ref(false)
 const menuRef = ref(null)
 
@@ -28,8 +26,7 @@ const clampPct = (n) => Math.min(100, Math.max(0, n))
 
 const cpuPct = computed(() => {
   const n = info.value
-  if (!n?.effectiveCpus) return 0
-  return clampPct(Math.round((n.allocCpus / n.effectiveCpus) * 100))
+  return n?.effectiveCpus ? clampPct(Math.round((n.allocCpus / n.effectiveCpus) * 100)) : 0
 })
 
 const memPct = computed(() => {
@@ -40,8 +37,7 @@ const memPct = computed(() => {
 
 const memUsed = computed(() => {
   const n = info.value
-  if (!n || n.freeMem == null) return '—'
-  return fmtSize(n.realMemory - n.freeMem)
+  return n?.freeMem == null ? '—' : fmtSize(n.realMemory - n.freeMem)
 })
 
 const cards = computed(() => {
@@ -77,31 +73,15 @@ async function refresh() {
 function isNoop(action) {
   const current = String(info.value?.state || '').toLowerCase()
   if (action.state === 'RESUME') {
-    return !(current.includes('drain') || current.includes('down') || current.includes('fail'))
+    return !/drain|down|fail/.test(current)
   }
   return current.includes(action.state.toLowerCase())
 }
 
-async function applyState(action) {
+function applyState(action) {
   menuOpen.value = false
-  if (!action || acting.value || isNoop(action)) return
-  if (!window.confirm(`确定要${action.label} ${nodeName}？`)) return
-  acting.value = action.state
-  actionError.value = ''
-  actionNotice.value = ''
-  try {
-    await slurm.updateNode(nodeName, action.state)
-    actionNotice.value = `已${action.label} ${nodeName}`
-    await refresh()
-  } catch (e) {
-    actionError.value = e.message
-  } finally {
-    acting.value = ''
-  }
-}
-
-function back() {
-  return navigateTo(`/console/${route.params.id}/nodes`)
+  if (isNoop(action) || !window.confirm(`确定要${action.label} ${nodeName}？`)) return
+  return run(action.state, () => slurm.updateNode(nodeName, action.state), `已${action.label} ${nodeName}`)
 }
 
 function closeMenu(event) {
@@ -119,12 +99,12 @@ onBeforeUnmount(() => document.removeEventListener('click', closeMenu))
 <template>
   <div class="mt-6 max-w-6xl">
     <UiToolbar :loading="loading" :updated-at="updatedAt" @refresh="refresh">
-      <button type="button" class="orbit-btn" @click="back">← 返回节点</button>
+      <UiButton @click="navigateTo(`/console/${route.params.id}/nodes`)">← 返回节点</UiButton>
     </UiToolbar>
 
     <UiAlert v-if="error">查询失败：{{ error }}</UiAlert>
 
-    <template v-else-if="info">
+    <template v-if="info">
       <div class="flex flex-wrap items-center gap-2">
         <h3 class="min-w-0 truncate text-lg font-semibold text-white">{{ info.name }}</h3>
 
@@ -133,7 +113,7 @@ onBeforeUnmount(() => document.removeEventListener('click', closeMenu))
             type="button"
             class="inline-flex items-center gap-1 rounded-full border border-orbit-line/60 px-2.5 py-0.5
                    text-xs transition hover:bg-white/5 disabled:opacity-60"
-            :class="nodeStateClass(info.state)"
+            :class="stateClass(info.state)"
             :disabled="!!acting"
             title="更改节点状态"
             @click="menuOpen = !menuOpen"
@@ -160,7 +140,7 @@ onBeforeUnmount(() => document.removeEventListener('click', closeMenu))
             </button>
           </div>
         </div>
-        <span v-else class="text-xs" :class="nodeStateClass(info.state)">{{ fmt(info.state) }}</span>
+        <span v-else class="text-xs" :class="stateClass(info.state)">{{ fmt(info.state) }}</span>
 
         <span class="rounded-full border border-orbit-line px-2 py-0.5 text-[10px] text-orbit-muted">
           {{ fmt(info.partitions) }}
