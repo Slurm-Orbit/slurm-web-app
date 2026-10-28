@@ -2,13 +2,10 @@
 definePageMeta({ middleware: 'console-auth', layout: 'console', title: '作业' })
 
 const route = useRoute()
-const { error, notice, acting, run } = useAction(refresh)
 
 const backendId = route.params.id
 const tab = ref(route.query.tab === 'history' ? 'history' : 'queue')
 const rows = ref([])
-const loading = ref(false)
-const updatedAt = ref(null)
 const statusFilter = ref('')
 
 const filteredRows = computed(() => {
@@ -32,19 +29,17 @@ function openJob(row) {
   return navigateTo(`/console/${backendId}/jobs/${row.jobId}${tab.value === 'history' ? '?tab=history' : ''}`)
 }
 
-async function refresh() {
-  if (loading.value) return
-  loading.value = true
+async function load() {
   error.value = ''
   try {
     rows.value = dedupeByJobId(await request(tab.value === 'queue' ? 'slurm:list_queue' : 'slurm:list_history'))
-    updatedAt.value = new Date()
   } catch (e) {
     error.value = e.message
-  } finally {
-    loading.value = false
   }
 }
+
+const refresh = usePageRefresh(load)
+const { error, notice, acting, run } = useAction(refresh)
 
 function switchTab(next) {
   if (tab.value === next) return
@@ -72,8 +67,8 @@ onMounted(refresh)
 </script>
 
 <template>
-  <div class="mt-6">
-    <UiToolbar :loading="loading" :updated-at="updatedAt" @refresh="refresh">
+  <div>
+    <div class="mb-4 flex flex-wrap items-center gap-3">
       <UiCard rounded="xl" class="flex p-1">
         <button
           v-for="item in [{ id: 'queue', label: '队列' }, { id: 'history', label: '历史' }]"
@@ -86,7 +81,7 @@ onMounted(refresh)
           {{ item.label }}
         </button>
       </UiCard>
-    </UiToolbar>
+    </div>
 
     <!-- 状态筛选标签 -->
     <UiCard v-if="statusCounts.length" rounded="xl" class="mb-4 flex flex-wrap gap-1 p-1">
@@ -183,7 +178,7 @@ onMounted(refresh)
           </tr>
         </tbody>
       </table>
-      <UiEmpty v-if="!filteredRows.length && !loading" class="px-4">
+      <UiEmpty v-if="!filteredRows.length" class="px-4">
         {{ rows.length ? '没有匹配该状态的作业' : tab === 'queue' ? '队列中没有作业' : '暂无历史作业' }}
       </UiEmpty>
     </UiCard>

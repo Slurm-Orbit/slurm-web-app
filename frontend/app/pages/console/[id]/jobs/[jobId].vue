@@ -2,7 +2,6 @@
 definePageMeta({ middleware: 'console-auth', layout: 'console', title: '作业详情' })
 
 const route = useRoute()
-const { error, notice, acting, run } = useAction(load)
 
 // Slurm 25 的 sstat 没有 CPUTime 字段，用 AveCPU（每任务平均 CPU 时间）代替
 const STAT_FIELDS = ['AveCPU', 'NTasks', 'MaxRSS', 'MaxDiskRead', 'MaxDiskWrite']
@@ -149,6 +148,15 @@ async function pollStats() {
 }
 
 async function load() {
+  error.value = ''
+  try {
+    await fetchJob()
+  } catch (e) {
+    error.value = e.message
+  }
+}
+
+async function fetchJob() {
   const jobId = String(route.params.jobId)
   let found = (await request('slurm:list_queue')).find((j) => String(j.jobId) === jobId)
   fromHistory.value = !found
@@ -157,6 +165,9 @@ async function load() {
   job.value = found
   await pollStats()
 }
+
+const refresh = usePageRefresh(load)
+const { error, notice, acting, run } = useAction(refresh)
 
 function holdJob(j) {
   return run(`hold:${j.jobId}`, () => request('slurm:hold_job', { jobId: j.jobId }), `已挂起作业 #${j.jobId}`)
@@ -176,11 +187,7 @@ function back() {
 }
 
 onMounted(async () => {
-  try {
-    await load()
-  } catch (e) {
-    error.value = e.message
-  }
+  await refresh()
   timer = setInterval(() => {
     nowTs.value = Date.now()
     pollStats()
@@ -192,10 +199,10 @@ onUnmounted(() => clearInterval(timer))
 </script>
 
 <template>
-  <p v-if="!job && !error" class="mt-6 text-sm text-orbit-muted">加载中…</p>
-  <UiAlert v-else-if="!job" class="mt-6 max-w-3xl">查询失败：{{ error }}</UiAlert>
+  <p v-if="!job && !error" class="text-sm text-orbit-muted">加载中…</p>
+  <UiAlert v-else-if="!job" class="max-w-3xl">查询失败：{{ error }}</UiAlert>
 
-  <div v-else class="mt-6 max-w-6xl">
+  <div v-else class="max-w-6xl">
     <!-- 头部：标识 + 操作 -->
     <UiCard class="flex flex-wrap items-center gap-x-4 gap-y-3 px-5 py-4">
       <UiButton class="shrink-0" @click="back">← 返回</UiButton>

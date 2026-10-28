@@ -4,10 +4,8 @@ definePageMeta({ middleware: 'console-auth', layout: 'console', title: '节点' 
 const route = useRoute()
 
 const backendId = route.params.id
-const loading = ref(false)
 const error = ref('')
 const nodes = ref([])
-const updatedAt = ref(null)
 
 const groups = computed(() => {
   const map = new Map()
@@ -31,28 +29,23 @@ function openNode(node) {
   return navigateTo(`/console/${backendId}/nodes/${encodeURIComponent(node.name)}`)
 }
 
-async function refresh() {
-  if (loading.value) return
-  loading.value = true
+async function load() {
   error.value = ''
   try {
     nodes.value = await request('slurm:list_nodes')
-    updatedAt.value = new Date()
   } catch (e) {
     error.value = e.message
-  } finally {
-    loading.value = false
   }
 }
+
+const refresh = usePageRefresh(load)
 
 onMounted(refresh)
 </script>
 
 <template>
-  <div class="mt-6 max-w-5xl">
-    <UiToolbar :loading="loading" :updated-at="updatedAt" @refresh="refresh" />
-
-    <UiAlert v-if="error">查询失败：{{ error }}</UiAlert>
+  <div class="max-w-5xl">
+    <UiAlert v-if="error" class="mb-4">查询失败：{{ error }}</UiAlert>
 
     <div v-else class="space-y-5">
       <section v-for="group in groups" :key="group.name">
@@ -94,7 +87,7 @@ onMounted(refresh)
           </table>
         </UiCard>
       </section>
-      <UiEmpty v-if="!groups.length && !loading">暂无节点信息</UiEmpty>
+      <UiEmpty v-if="!groups.length">暂无节点信息</UiEmpty>
     </div>
   </div>
 </template>

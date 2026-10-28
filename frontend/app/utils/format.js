@@ -88,3 +88,7 @@ export function jobElapsed(job) {
   if (!Number.isFinite(start)) return DASH
   return fmtDuration(new Date(job.endTime ?? Date.now()).getTime() - start)
 }
+
+export function fmtPercent(value, total) {
+  return total ? `${(value / total) * 100}%` : '0%'
+}

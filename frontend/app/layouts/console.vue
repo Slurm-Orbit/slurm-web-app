@@ -20,6 +20,22 @@ const sections = [
 const section = computed(() => route.path.match(/^\/console\/[^/]+\/([^/]+)/)?.[1] ?? 'info')
 provide('consoleBackend', backend)
 provide('consoleAuth', { isRoot })
+
+// 子页面通过 usePageRefresh 注册加载动作；刷新统一由布局触发，等待状态与更新时间也由布局维护
+const pageRefresh = reactive({ load: null, refreshing: false, updatedAt: null })
+
+pageRefresh.refresh = async () => {
+  if (pageRefresh.refreshing || !pageRefresh.load) return
+  pageRefresh.refreshing = true
+  try {
+    await pageRefresh.load()
+    pageRefresh.updatedAt = new Date()
+  } finally {
+    pageRefresh.refreshing = false
+  }
+}
+
+provide('pageRefresh', pageRefresh)
 </script>
 
 <template>
@@ -37,7 +53,7 @@ provide('consoleAuth', { isRoot })
           {{ backend?.hostname || backendId }}
         </h1>
         <UiLabel class="hidden lg:mt-1 lg:block">Console</UiLabel>
-        <UiTag v-if="isRoot" class="lg:mt-3">root</UiTag>
+        <UiTag v-if="isRoot" tone="default" class="lg:mt-3">root</UiTag>
       </div>
 
       <nav class="flex flex-wrap gap-1 px-3 py-3 lg:flex-1 lg:flex-col lg:flex-nowrap lg:py-4">
@@ -56,8 +72,21 @@ provide('consoleAuth', { isRoot })
     </aside>
 
     <main class="flex min-w-0 flex-1 flex-col px-4 py-6 sm:px-8 sm:py-8 lg:px-10">
-      <h2 class="text-2xl font-semibold tracking-tight text-white">{{ route.meta.title }}</h2>
-      <slot />
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <h2 class="text-2xl font-semibold tracking-tight text-white">{{ route.meta.title }}</h2>
+        <div v-if="pageRefresh.load" class="flex items-center gap-3">
+          <span v-if="pageRefresh.updatedAt" class="text-xs text-orbit-muted">
+            更新于 {{ pageRefresh.updatedAt.toLocaleTimeString() }}
+          </span>
+          <UiButton :disabled="pageRefresh.refreshing" @click="pageRefresh.refresh()">
+            {{ pageRefresh.refreshing ? '刷新中…' : '刷新' }}
+          </UiButton>
+        </div>
+      </div>
+
+      <div class="mt-6 flex min-w-0 flex-1 flex-col">
+        <slot />
+      </div>
     </main>
   </div>
 </template>

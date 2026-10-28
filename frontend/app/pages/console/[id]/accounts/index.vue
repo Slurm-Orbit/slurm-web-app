@@ -1,13 +1,10 @@
 <script setup>
 definePageMeta({ middleware: 'console-auth', layout: 'console', title: '账户' })
 
-const { error, notice, acting, run } = useAction(refresh)
-
-const loading = ref(false)
 const rows = ref([])
-const updatedAt = ref(null)
 // 权限由 console 布局按后端环境推导后注入
 const { isRoot: admin } = inject('consoleAuth')
+
 const showAdd = ref(false)
 const form = ref({ name: '', parent: '', description: '' })
 const editing = ref(null)
@@ -26,19 +23,17 @@ const tree = computed(() => {
   return roots
 })
 
-async function refresh() {
-  if (loading.value) return
-  loading.value = true
+async function load() {
   error.value = ''
   try {
     rows.value = await request('slurm:list_accounts')
-    updatedAt.value = new Date()
   } catch (e) {
     error.value = e.message
-  } finally {
-    loading.value = false
   }
 }
+
+const refresh = usePageRefresh(load)
+const { error, notice, acting, run } = useAction(refresh)
 
 async function addAccount() {
   const name = form.value.name.trim()
@@ -74,13 +69,13 @@ onMounted(refresh)
 </script>
 
 <template>
-  <div class="mt-6">
-    <UiToolbar :loading="loading" :updated-at="updatedAt" @refresh="refresh">
+  <div>
+    <div class="mb-4 flex items-center gap-3">
       <UiButton v-if="admin" variant="accent" @click="showAdd = !showAdd">
         {{ showAdd ? '收起新增' : '新增账户' }}
       </UiButton>
       <span class="text-xs text-orbit-muted">{{ rows.length }} 个账户</span>
-    </UiToolbar>
+    </div>
 
     <!-- 新增账户 -->
     <UiCard v-if="showAdd && admin" class="mb-4 p-4">
@@ -127,6 +122,6 @@ onMounted(refresh)
       />
     </div>
 
-    <UiEmpty v-else-if="!loading" class="px-5 py-10">暂无账户</UiEmpty>
+    <UiEmpty v-else class="px-5 py-10">暂无账户</UiEmpty>
   </div>
 </template>

@@ -13,12 +13,9 @@ const nodeName = String(route.params.nodeName)
 // 权限由 console 布局按后端环境推导后注入
 const { isRoot } = inject('consoleAuth')
 
-const loading = ref(false)
 const error = ref('')
 const info = ref(null)
-const updatedAt = ref(null)
 
-const { notice: actionNotice, error: actionError, acting, run } = useAction(refresh)
 const menuOpen = ref(false)
 const menuRef = ref(null)
 
@@ -54,21 +51,19 @@ const cards = computed(() => {
   ]
 })
 
-async function refresh() {
-  if (loading.value) return
-  loading.value = true
+async function load() {
   error.value = ''
   try {
     const nodes = await request('slurm:list_nodes')
     info.value = nodes.find((n) => n.name === nodeName) || null
-    if (!info.value) error.value = `未找到节点 ${nodeName}`
-    updatedAt.value = new Date()
+    if (!info.value) throw new Error(`未找到节点 ${nodeName}`)
   } catch (e) {
     error.value = e.message
-  } finally {
-    loading.value = false
   }
 }
+
+const refresh = usePageRefresh(load)
+const { notice: actionNotice, error: actionError, acting, run } = useAction(refresh)
 
 function isNoop(action) {
   const current = String(info.value?.state || '').toLowerCase()
@@ -97,12 +92,12 @@ onBeforeUnmount(() => document.removeEventListener('click', closeMenu))
 </script>
 
 <template>
-  <div class="mt-6 max-w-6xl">
-    <UiToolbar :loading="loading" :updated-at="updatedAt" @refresh="refresh">
+  <div class="max-w-6xl">
+    <div class="mb-4 flex flex-wrap items-center gap-3">
       <UiButton @click="navigateTo(`/console/${route.params.id}/nodes`)">← 返回节点</UiButton>
-    </UiToolbar>
+    </div>
 
-    <UiAlert v-if="error">查询失败：{{ error }}</UiAlert>
+    <UiAlert v-if="error" class="mb-4">查询失败：{{ error }}</UiAlert>
 
     <template v-if="info">
       <div class="flex flex-wrap items-center gap-2">
