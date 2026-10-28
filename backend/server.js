@@ -15,7 +15,7 @@ async function detectEnv() {
         await slurmjs.getSlurmVersion();
         slurmInstalled = true;
     } catch {
-        console.error("[agent] slurm not installed");
+        slurmInstalled = false;
     }
     const isRoot =
         typeof process.getuid === "function" && process.getuid() === 0;
@@ -24,19 +24,23 @@ async function detectEnv() {
 
 async function connect(url, options) {
     const password = options.password || randomUUID();
-    const meta = {
-        id: options.name || os.hostname(),
+    const id = options.name || os.hostname();
+
+    // 注册只上报 id，其余环境信息在认证后由 backend:info 按需返回
+    const info = async () => ({
+        id,
         hostname: os.hostname(),
         username: os.userInfo().username,
         version: VERSION,
         node: process.version,
         ...(await detectEnv()),
-    };
+    });
 
+    const env = await info();
     console.log(`[agent] connecting to gateway ${url}`);
-    console.log(`[agent] identity ${meta.id}`);
+    console.log(`[agent] identity ${id}`);
     console.log(
-        `[agent] slurm installed: ${meta.slurmInstalled}, root: ${meta.isRoot}`,
+        `[agent] slurm installed: ${env.slurmInstalled}, root: ${env.isRoot}`,
     );
     console.log(`[agent] access key ${password}`);
 
@@ -50,9 +54,8 @@ async function connect(url, options) {
         reconnectionAttempts: Infinity,
     });
 
-    socket.on("connect", async () => {
-        Object.assign(meta, await detectEnv());
-        socket.emit("backend:register", meta, (ack) => {
+    socket.on("connect", () => {
+        socket.emit("backend:register", { id }, (ack) => {
             if (ack?.ok) {
                 console.log(`[agent] uplink established (${socket.id})`);
             } else {
@@ -74,7 +77,7 @@ async function connect(url, options) {
         console.log(
             `[agent] session enter from browser ${payload.browserId || "?"}`,
         );
-        ack?.({ ok: true, backend: meta });
+        ack?.({ ok: true });
     });
 
     async function jobOutput(path) {
@@ -126,6 +129,8 @@ async function connect(url, options) {
     onSlurm("slurm:modify_account", (p) => slurmjs.modifySlurmAccount(p.where, p.set));
     onSlurm("slurm:delete_account", (p) => slurmjs.deleteSlurmAccount(p.name));
 
+    // 认证通过后才允许读取后端自身信息
+    onSlurm("backend:info", info);
 
     socket.on("disconnect", (reason) => {
         console.log(`[agent] disconnected (${reason}) — waiting to reconnect`);

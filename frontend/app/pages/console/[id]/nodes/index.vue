@@ -2,7 +2,6 @@
 definePageMeta({ middleware: 'console-auth', layout: 'console', title: '节点' })
 
 const route = useRoute()
-const { slurm } = useSocket()
 
 const backendId = route.params.id
 const loading = ref(false)
@@ -37,7 +36,7 @@ async function refresh() {
   loading.value = true
   error.value = ''
   try {
-    nodes.value = await slurm.listNodes()
+    nodes.value = await request('slurm:list_nodes')
     updatedAt.value = new Date()
   } catch (e) {
     error.value = e.message

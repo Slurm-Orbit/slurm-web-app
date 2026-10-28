@@ -1,33 +1,10 @@
 <script setup>
-const { status, backends, connect, openSession } = useSocket()
-
-const enteringId = ref(null)
-const cardErrors = ref({})
-
-const waitingForAgent = computed(
-  () => status.value === 'connecting' || (status.value === 'ready' && backends.value.length === 0)
-)
-
-onMounted(() => connect())
-
-async function enter({ backend, password }) {
-  if (enteringId.value) return
-  enteringId.value = backend.id
-  cardErrors.value[backend.id] = ''
-  try {
-    await openSession(backend.id, password)
-    await navigateTo(`/console/${backend.id}`)
-  } catch (e) {
-    cardErrors.value[backend.id] = e.message
-  } finally {
-    enteringId.value = null
-  }
-}
+const gateway = useGateway()
 </script>
 
 <template>
   <div class="fixed inset-0 overflow-hidden">
-    <div class="pointer-events-none absolute inset-0 z-0 overflow-hidden" aria-hidden="true">
+    <div class="absolute inset-0 z-0 overflow-hidden" aria-hidden="true">
       <BackdropAmbientLight class="absolute -left-24 -top-32 h-[420px] w-[420px] bg-white/10 blur-[130px]" />
       <BackdropAmbientLight class="absolute -right-16 -bottom-40 h-[520px] w-[520px] bg-white/[0.06] blur-[150px]" />
       <BackdropAmbientLight class="absolute left-1/2 top-[28%] h-[260px] w-[520px] -translate-x-1/2 bg-white/[0.04] blur-[110px]" />
@@ -44,7 +21,7 @@ async function enter({ backend, password }) {
             <p class="text-xs text-orbit-muted">Distributed compute gateway</p>
           </div>
         </div>
-        <StatusIndicator :count="backends.length" />
+        <StatusIndicator :count="Object.keys(gateway).length" />
       </header>
 
       <main class="flex flex-1 flex-col justify-center py-12">
@@ -59,21 +36,16 @@ async function enter({ backend, password }) {
         </div>
 
         <!-- Waiting -->
-        <UiCard v-if="waitingForAgent" glow class="max-w-lg p-7">
+        <UiCard v-if="!Object.keys(gateway).length" glow class="max-w-lg p-7">
           <div class="flex items-start gap-4">
             <UiSpinner class="mt-0.5" />
             <div>
-              <h2 class="text-lg font-semibold text-white">
-                {{ status === 'connecting' ? 'Linking to gateway' : 'Waiting for agents' }}
-              </h2>
+              <h2 class="text-lg font-semibold text-white">Waiting for agents</h2>
               <p class="mt-2 text-sm leading-relaxed text-orbit-muted">
-                <template v-if="status === 'connecting'">Opening a realtime channel…</template>
-                <template v-else>
-                  On your Slurm host, run:
-                  <code class="mt-2 block rounded-lg border border-orbit-line bg-black/30 px-3 py-2 text-xs text-orbit-accent">
-                    server start &lt;this-url&gt;
-                  </code>
-                </template>
+                On your Slurm host, run:
+                <code class="mt-2 block rounded-lg border border-orbit-line bg-black/30 px-3 py-2 text-xs text-orbit-accent">
+                  server start &lt;this-url&gt;
+                </code>
               </p>
             </div>
           </div>
@@ -86,12 +58,15 @@ async function enter({ backend, password }) {
           </div>
           <div class="grid gap-4 sm:grid-cols-2">
             <BackendCard
-              v-for="b in backends"
-              :key="b.id"
-              :backend="b"
-              :entering="enteringId === b.id"
-              :error="cardErrors[b.id] || ''"
-              @enter="enter"
+              v-for="(entry, id) in gateway"
+              :key="id"
+              :backend-id="id"
+              :error="entry.error"
+              @enter="(password) => {
+                entry.password = password
+                entry.error = ''
+                navigateTo(`/console/${id}`)
+              }"
             />
           </div>
         </section>

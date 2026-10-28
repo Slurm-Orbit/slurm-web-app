@@ -2,7 +2,6 @@
 definePageMeta({ middleware: 'console-auth', layout: 'console', title: '作业' })
 
 const route = useRoute()
-const { slurm } = useSocket()
 const { error, notice, acting, run } = useAction(refresh)
 
 const backendId = route.params.id
@@ -38,7 +37,7 @@ async function refresh() {
   loading.value = true
   error.value = ''
   try {
-    rows.value = dedupeByJobId(tab.value === 'queue' ? await slurm.listQueue() : await slurm.listHistory())
+    rows.value = dedupeByJobId(await request(tab.value === 'queue' ? 'slurm:list_queue' : 'slurm:list_history'))
     updatedAt.value = new Date()
   } catch (e) {
     error.value = e.message
@@ -57,16 +56,16 @@ function switchTab(next) {
 }
 
 function holdJob(row) {
-  return run(`hold:${row.jobId}`, () => slurm.holdJob(row.jobId), `已挂起作业 #${row.jobId}`)
+  return run(`hold:${row.jobId}`, () => request('slurm:hold_job', { jobId: row.jobId }), `已挂起作业 #${row.jobId}`)
 }
 
 function releaseJob(row) {
-  return run(`release:${row.jobId}`, () => slurm.releaseJob(row.jobId), `已释放作业 #${row.jobId}`)
+  return run(`release:${row.jobId}`, () => request('slurm:release_job', { jobId: row.jobId }), `已释放作业 #${row.jobId}`)
 }
 
 function cancelJob(row) {
   if (!window.confirm(`确定取消作业 #${row.jobId}（${row.name || '未命名'}）？`)) return
-  return run(`cancel:${row.jobId}`, () => slurm.cancelJob(row.jobId), `已取消作业 #${row.jobId}`)
+  return run(`cancel:${row.jobId}`, () => request('slurm:cancel_job', { jobId: row.jobId }), `已取消作业 #${row.jobId}`)
 }
 
 onMounted(refresh)

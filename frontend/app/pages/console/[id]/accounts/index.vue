@@ -1,14 +1,14 @@
 <script setup>
 definePageMeta({ middleware: 'console-auth', layout: 'console', title: '账户' })
 
-const route = useRoute()
-const { slurm, backendMeta } = useSocket()
 const { error, notice, acting, run } = useAction(refresh)
 
 const loading = ref(false)
 const rows = ref([])
 const updatedAt = ref(null)
-const admin = computed(() => !!backendMeta(route.params.id)?.isRoot)
+// 同一份后端详情由 console 布局拉取后注入
+const backend = inject('consoleBackend')
+const admin = computed(() => !!backend?.value?.isRoot)
 const showAdd = ref(false)
 const form = ref({ name: '', parent: '', description: '' })
 const editing = ref(null)
@@ -32,7 +32,7 @@ async function refresh() {
   loading.value = true
   error.value = ''
   try {
-    rows.value = await slurm.listAccounts()
+    rows.value = await request('slurm:list_accounts')
     updatedAt.value = new Date()
   } catch (e) {
     error.value = e.message
@@ -44,7 +44,11 @@ async function refresh() {
 async function addAccount() {
   const name = form.value.name.trim()
   if (!name) return
-  const ok = await run('add', () => slurm.addAccount(name, form.value.parent.trim(), form.value.description.trim()), `已创建账户 ${name}`)
+  const ok = await run('add', () => request('slurm:add_account', {
+    name,
+    parent: form.value.parent.trim(),
+    description: form.value.description.trim()
+  }), `已创建账户 ${name}`)
   if (!ok) return
   showAdd.value = false
   form.value = { name: '', parent: '', description: '' }
@@ -56,7 +60,7 @@ function startEdit(row) {
 
 async function saveEdit() {
   const { name, set } = editing.value
-  if (await run(name, () => slurm.modifyAccount(name, set), `已更新账户 ${name}`)) {
+  if (await run(name, () => request('slurm:modify_account', { where: name, set }), `已更新账户 ${name}`)) {
     editing.value = null
   }
 }
@@ -64,7 +68,7 @@ async function saveEdit() {
 async function removeAccount(row) {
   if (row.name === 'root') return
   if (!window.confirm(`确定删除账户 ${row.name}？该操作不可恢复。`)) return
-  await run(row.name, () => slurm.deleteAccount(row.name), `已删除账户 ${row.name}`)
+  await run(row.name, () => request('slurm:delete_account', { name: row.name }), `已删除账户 ${row.name}`)
 }
 
 onMounted(refresh)

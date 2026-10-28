@@ -2,7 +2,6 @@
 definePageMeta({ middleware: 'console-auth', layout: 'console', title: '作业详情' })
 
 const route = useRoute()
-const { slurm } = useSocket()
 const { error, notice, acting, run } = useAction(load)
 
 // Slurm 25 的 sstat 没有 CPUTime 字段，用 AveCPU（每任务平均 CPU 时间）代替
@@ -131,7 +130,7 @@ async function viewOutput(item) {
   const kind = item.kind
   outputs.value[kind] = { loading: true }
   try {
-    outputs.value[kind] = await slurm.jobOutput(item.path)
+    outputs.value[kind] = await request('slurm:job_output', { path: item.path })
   } catch (e) {
     outputs.value[kind] = { error: e.message }
   }
@@ -140,7 +139,7 @@ async function viewOutput(item) {
 async function pollStats() {
   if (!running.value) return
   try {
-    const s = await slurm.jobStat(job.value.jobId, STAT_FIELDS)
+    const s = await request('slurm:job_stat', { jobId: job.value.jobId, target: STAT_FIELDS })
     stats.value = s
     statsError.value = ''
     cpuHistory.value = [...cpuHistory.value.slice(1 - MAX_POINTS), cpuPctOf(s)]
@@ -151,25 +150,25 @@ async function pollStats() {
 
 async function load() {
   const jobId = String(route.params.jobId)
-  let found = (await slurm.listQueue()).find((j) => String(j.jobId) === jobId)
+  let found = (await request('slurm:list_queue')).find((j) => String(j.jobId) === jobId)
   fromHistory.value = !found
-  if (!found) found = (await slurm.listHistory()).find((j) => String(j.jobId) === jobId)
+  if (!found) found = (await request('slurm:list_history')).find((j) => String(j.jobId) === jobId)
   if (!found) throw new Error(`未找到作业 #${jobId}`)
   job.value = found
   await pollStats()
 }
 
 function holdJob(j) {
-  return run(`hold:${j.jobId}`, () => slurm.holdJob(j.jobId), `已挂起作业 #${j.jobId}`)
+  return run(`hold:${j.jobId}`, () => request('slurm:hold_job', { jobId: j.jobId }), `已挂起作业 #${j.jobId}`)
 }
 
 function releaseJob(j) {
-  return run(`release:${j.jobId}`, () => slurm.releaseJob(j.jobId), `已释放作业 #${j.jobId}`)
+  return run(`release:${j.jobId}`, () => request('slurm:release_job', { jobId: j.jobId }), `已释放作业 #${j.jobId}`)
 }
 
 function cancelJob(j) {
   if (!window.confirm(`确定取消作业 #${j.jobId}（${j.name || '未命名'}）？`)) return
-  return run(`cancel:${j.jobId}`, () => slurm.cancelJob(j.jobId), `已取消作业 #${j.jobId}`)
+  return run(`cancel:${j.jobId}`, () => request('slurm:cancel_job', { jobId: j.jobId }), `已取消作业 #${j.jobId}`)
 }
 
 function back() {

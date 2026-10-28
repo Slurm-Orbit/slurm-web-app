@@ -1,14 +1,24 @@
 <script setup>
 const route = useRoute()
-const { status, backendMeta, connect } = useSocket()
+const gateway = useGateway()
 
 const backendId = route.params.id
-const backend = computed(() => backendMeta(backendId))
+// 后端不在字典里即视为下线，不额外维护状态
+const online = computed(() => !!gateway.value[backendId])
 
-// loading: 等待后端环境信息；console: 已安装；install: 未安装但 root（管理/安装界面）；error: 未安装且非 root
+const backend = ref(null)
+
+// 渲染时向后端自身查询环境信息，网关只做中继
+watchEffect(async () => {
+  if (!online.value) return
+  backend.value = await request('backend:info').catch(() => null)
+})
+
+// loading: 等待后端环境信息；offline: 后端已下线；console: 已安装；install: 未安装但 root（管理/安装界面）；error: 未安装且非 root
 const viewState = computed(() => {
+  if (!online.value) return 'offline'
   const b = backend.value
-  if (!b || typeof b.slurmInstalled !== 'boolean') return 'loading'
+  if (typeof b?.slurmInstalled !== 'boolean') return 'loading'
   if (b.slurmInstalled) return 'console'
   return b.isRoot ? 'install' : 'error'
 })
@@ -31,9 +41,8 @@ function isActive(item) {
   return route.path === item.to || route.path.startsWith(`${item.to}/`)
 }
 
-onMounted(() => {
-  if (status.value === 'idle') connect()
-})
+// 供 console 子页复用同一份 meta，避免各自重复请求
+provide('consoleBackend', backend)
 </script>
 
 <template>
@@ -51,15 +60,21 @@ onMounted(() => {
           {{ backend?.id || backendId }}
         </h1>
         <UiLabel class="hidden lg:mt-1 lg:block">Console</UiLabel>
-        <div v-if="backend" class="flex shrink-0 gap-1.5 lg:mt-3 lg:flex-wrap">
+        <div v-if="!online || backend" class="flex shrink-0 gap-1.5 lg:mt-3 lg:flex-wrap">
           <span
-            v-if="!backend.slurmInstalled"
+            v-if="!online"
+            class="rounded-full border border-orbit-danger/30 px-2 py-0.5 text-[10px] text-orbit-danger"
+          >
+            后端下线
+          </span>
+          <span
+            v-if="backend && !backend.slurmInstalled"
             class="rounded-full border border-orbit-danger/30 px-2 py-0.5 text-[10px] text-orbit-danger"
           >
             Slurm 未安装
           </span>
           <span
-            v-if="backend.isRoot"
+            v-if="backend?.isRoot"
             class="rounded-full border border-orbit-warn/30 px-2 py-0.5 text-[10px] text-orbit-warn"
           >
             root
@@ -84,8 +99,22 @@ onMounted(() => {
     </aside>
 
     <main class="flex min-w-0 flex-1 flex-col px-4 py-6 sm:px-8 sm:py-8 lg:px-10">
+      <!-- 后端已下线：只提示，不跳转 -->
+      <div v-if="viewState === 'offline'" class="flex flex-1 items-center justify-center">
+        <UiCard glow class="max-w-md p-8 text-center">
+          <div class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full border border-orbit-danger/40 bg-orbit-danger/10 text-xl text-orbit-danger">
+            ✕
+          </div>
+          <h2 class="text-xl font-semibold tracking-tight text-white">后端已下线</h2>
+          <p class="mt-3 text-sm leading-relaxed text-orbit-muted">
+            后端 {{ backendId }} 已与网关断开，控制台内容不再可用。等待其重新上线，或返回网关页。
+          </p>
+          <UiButton class="mt-6" @click="navigateTo('/')">返回网关</UiButton>
+        </UiCard>
+      </div>
+
       <!-- 等待后端环境信息 -->
-      <div v-if="viewState === 'loading'" class="flex flex-1 items-center justify-center">
+      <div v-else-if="viewState === 'loading'" class="flex flex-1 items-center justify-center">
         <div class="flex items-center gap-3 text-sm text-orbit-muted">
           <UiSpinner />
           正在获取后端环境信息…

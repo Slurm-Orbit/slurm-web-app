@@ -2,7 +2,6 @@
 definePageMeta({ middleware: 'console-auth', layout: 'console', title: '节点详情' })
 
 const route = useRoute()
-const { slurm, backendMeta } = useSocket()
 
 const NODE_ACTIONS = [
   { state: 'RESUME', label: '恢复', hint: '清除排空或下线状态，重新接受作业' },
@@ -11,7 +10,9 @@ const NODE_ACTIONS = [
 ]
 
 const nodeName = String(route.params.nodeName)
-const admin = computed(() => !!backendMeta(route.params.id)?.isRoot)
+// 同一份后端详情由 console 布局拉取后注入
+const backend = inject('consoleBackend')
+const admin = computed(() => !!backend?.value?.isRoot)
 
 const loading = ref(false)
 const error = ref('')
@@ -59,7 +60,7 @@ async function refresh() {
   loading.value = true
   error.value = ''
   try {
-    const nodes = await slurm.listNodes()
+    const nodes = await request('slurm:list_nodes')
     info.value = nodes.find((n) => n.name === nodeName) || null
     if (!info.value) error.value = `未找到节点 ${nodeName}`
     updatedAt.value = new Date()
@@ -81,7 +82,7 @@ function isNoop(action) {
 function applyState(action) {
   menuOpen.value = false
   if (isNoop(action) || !window.confirm(`确定要${action.label} ${nodeName}？`)) return
-  return run(action.state, () => slurm.updateNode(nodeName, action.state), `已${action.label} ${nodeName}`)
+  return run(action.state, () => request('slurm:update_node', { nodeName, state: action.state }), `已${action.label} ${nodeName}`)
 }
 
 function closeMenu(event) {

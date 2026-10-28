@@ -8,33 +8,33 @@ export default defineNitroPlugin((nitroApp) => {
   io.bind(engine)
 
   const allSockets = () => io.sockets.sockets.values()
-  const onlineBackends = () => [...allSockets()].map((s) => s.data.backend).filter(Boolean)
-  const agentOf = (id) => id && [...allSockets()].find((s) => s.data.backend?.id === id)
+  const onlineBackendIds = () => [...allSockets()].map((s) => s.data.backendId).filter(Boolean)
+  const agentOf = (id) => id && [...allSockets()].find((s) => s.data.backendId === id)
 
   const broadcast = () => {
-    io.to('browsers').emit('backends:update', { backends: onlineBackends() })
+    io.to('browsers').emit('backends:update', { backends: onlineBackendIds() })
   }
 
   io.on('connection', (socket) => {
     if (socket.handshake.auth?.role === 'backend') {
-      socket.on('backend:register', (meta, ack) => {
-        socket.data.backend = meta
+      socket.on('backend:register', ({ id }, ack) => {
+        socket.data.backendId = id
         ack?.({ ok: true })
         broadcast()
       })
 
       socket.on('disconnect', () => {
-        const backend = socket.data.backend
-        if (!backend) return
-        socket.data.backend = null
+        const backendId = socket.data.backendId
+        if (!backendId) return
+        socket.data.backendId = null
         for (const other of allSockets()) {
-          if (other.data.session === backend.id) other.data.session = null
+          if (other.data.session === backendId) other.data.session = null
         }
         broadcast()
       })
     } else {
       socket.join('browsers')
-      socket.emit('backends:snapshot', { backends: onlineBackends() })
+      socket.emit('backends:snapshot', { backends: onlineBackendIds() })
 
       socket.on('session:open', async ({ id, password }, ack) => {
         const agent = agentOf(id)
@@ -50,11 +50,11 @@ export default defineNitroPlugin((nitroApp) => {
         }
 
         socket.data.session = id
-        ack?.({ ok: true, backend: agent.data.backend })
+        ack?.({ ok: true })
       })
 
       socket.onAny(async (event, payload, ack) => {
-        if (!event.startsWith('slurm:')) return
+        if (['session:open', 'session:enter', 'backend:register'].includes(event)) return
 
         const agent = agentOf(socket.data.session)
         if (!agent) return ack?.({ ok: false, error: 'no active session' })

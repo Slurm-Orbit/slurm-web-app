@@ -1,16 +1,14 @@
 <script setup>
 definePageMeta({ middleware: 'console-auth', layout: 'console', title: '详情' })
 
-const route = useRoute()
-const { slurm, backendMeta } = useSocket()
-
 const loading = ref(false)
 const error = ref('')
 const cluster = ref(null)
 const version = ref(null)
 const updatedAt = ref(null)
 
-const backend = computed(() => backendMeta(route.params.id))
+// 同一份后端详情由 console 布局拉取后注入
+const backend = inject('consoleBackend')
 
 const backendCards = computed(() => {
   const b = backend.value
@@ -49,9 +47,9 @@ async function refresh() {
   error.value = ''
   try {
     const [parts, jobs, ver] = await Promise.all([
-      slurm.listCluster(),
-      slurm.listQueue(),
-      slurm.version().catch(() => null)
+      request('slurm:list_cluster'),
+      request('slurm:list_queue'),
+      request('slurm:version').catch(() => null)
     ])
     cluster.value = summarize(parts, jobs)
     version.value = ver
