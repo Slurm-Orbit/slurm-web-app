@@ -10,9 +10,8 @@ const NODE_ACTIONS = [
 ]
 
 const nodeName = String(route.params.nodeName)
-// 同一份后端详情由 console 布局拉取后注入
-const backend = inject('consoleBackend')
-const admin = computed(() => !!backend?.value?.isRoot)
+// 权限由 console 布局按后端环境推导后注入
+const { isRoot } = inject('consoleAuth')
 
 const loading = ref(false)
 const error = ref('')
@@ -109,7 +108,7 @@ onBeforeUnmount(() => document.removeEventListener('click', closeMenu))
       <div class="flex flex-wrap items-center gap-2">
         <h3 class="min-w-0 truncate text-lg font-semibold text-white">{{ info.name }}</h3>
 
-        <div v-if="admin" ref="menuRef" class="relative">
+        <div v-if="isRoot" ref="menuRef" class="relative">
           <button
             type="button"
             class="inline-flex items-center gap-1 rounded-full border border-orbit-line/60 px-2.5 py-0.5

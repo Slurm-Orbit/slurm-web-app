@@ -6,9 +6,8 @@ const { error, notice, acting, run } = useAction(refresh)
 const loading = ref(false)
 const rows = ref([])
 const updatedAt = ref(null)
-// 同一份后端详情由 console 布局拉取后注入
-const backend = inject('consoleBackend')
-const admin = computed(() => !!backend?.value?.isRoot)
+// 权限由 console 布局按后端环境推导后注入
+const { isRoot: admin } = inject('consoleAuth')
 const showAdd = ref(false)
 const form = ref({ name: '', parent: '', description: '' })
 const editing = ref(null)

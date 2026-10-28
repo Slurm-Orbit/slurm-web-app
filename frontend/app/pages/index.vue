@@ -1,5 +1,11 @@
 <script setup>
 const gateway = useGateway()
+
+function enter(entry, id) {
+  if (!entry.password) return
+  entry.error = ''
+  navigateTo(`/console/${id}`)
+}
 </script>
 
 <template>
@@ -57,17 +63,43 @@ const gateway = useGateway()
             <h2 class="text-sm font-medium text-orbit-muted">Available backends</h2>
           </div>
           <div class="grid gap-4 sm:grid-cols-2">
-            <BackendCard
+            <UiCard
               v-for="(entry, id) in gateway"
               :key="id"
-              :backend-id="id"
-              :error="entry.error"
-              @enter="(password) => {
-                entry.password = password
-                entry.error = ''
-                navigateTo(`/console/${id}`)
-              }"
-            />
+              class="relative flex w-full flex-col overflow-hidden p-5 text-left transition-shadow duration-200
+                     hover:shadow-[0_0_0_1px_rgba(220,220,230,0.35),0_12px_40px_rgba(200,205,220,0.22)]"
+            >
+              <div class="mb-4 flex items-start justify-between gap-3">
+                <div>
+                  <UiLabel>Agent</UiLabel>
+                  <h3 class="mt-1 text-lg font-semibold tracking-tight text-white">{{ id }}</h3>
+                </div>
+              </div>
+
+              <UiLabel as="label" class="mb-1" :for="`pw-${id}`">Access key</UiLabel>
+              <UiInput
+                :id="`pw-${id}`"
+                v-model="entry.password"
+                type="password"
+                autocomplete="off"
+                placeholder="••••••••"
+                class="mb-3 w-full"
+                @keydown.enter.prevent="enter(entry, id)"
+              />
+
+              <p v-if="entry.error" class="mb-3 text-xs text-orbit-danger">{{ entry.error }}</p>
+
+              <button
+                type="button"
+                class="mt-auto flex w-full items-center justify-between border-t border-orbit-line pt-4
+                       text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50"
+                :disabled="!entry.password"
+                @click="enter(entry, id)"
+              >
+                <span class="text-orbit-accent">Enter</span>
+                <span class="text-orbit-muted">→</span>
+              </button>
+            </UiCard>
           </div>
         </section>
       </main>

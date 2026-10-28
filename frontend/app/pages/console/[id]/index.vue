@@ -4,18 +4,18 @@ definePageMeta({ middleware: 'console-auth', layout: 'console', title: '详情' 
 const loading = ref(false)
 const error = ref('')
 const cluster = ref(null)
-const version = ref(null)
 const updatedAt = ref(null)
 
 // 同一份后端详情由 console 布局拉取后注入
 const backend = inject('consoleBackend')
+const { isRoot } = inject('consoleAuth')
 
 const backendCards = computed(() => {
   const b = backend.value
   if (!b) return []
   return [
     { label: '主机名', value: fmt(b.hostname) },
-    { label: '运行用户', value: fmt(b.username), sub: b.isRoot ? 'root 权限' : '普通用户' },
+    { label: '运行用户', value: fmt(b.username), sub: isRoot.value ? 'root 权限' : '普通用户' },
     { label: '后端版本', value: fmt(b.version) },
     { label: 'Node 版本', value: fmt(b.node) }
   ]
@@ -46,13 +46,11 @@ async function refresh() {
   loading.value = true
   error.value = ''
   try {
-    const [parts, jobs, ver] = await Promise.all([
+    const [parts, jobs] = await Promise.all([
       request('slurm:list_cluster'),
-      request('slurm:list_queue'),
-      request('slurm:version').catch(() => null)
+      request('slurm:list_queue')
     ])
     cluster.value = summarize(parts, jobs)
-    version.value = ver
     updatedAt.value = new Date()
   } catch (e) {
     error.value = e.message
@@ -73,7 +71,7 @@ onMounted(refresh)
 
     <div v-else-if="cluster" class="grid grid-cols-2 gap-3 lg:grid-cols-4">
       <UiCard class="px-5 py-4">
-        <p class="text-2xl font-semibold tracking-tight text-white">{{ version || '—' }}</p>
+        <p class="text-2xl font-semibold tracking-tight text-white">{{ backend?.slurmVersion || '—' }}</p>
         <UiLabel class="mt-1">Slurm 版本</UiLabel>
       </UiCard>
       <UiCard class="px-5 py-4">

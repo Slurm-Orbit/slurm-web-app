@@ -10,16 +10,17 @@ const VERSION = "1.0.0";
 program.version(VERSION);
 
 async function detectEnv() {
-    let slurmInstalled = false;
-    try {
-        await slurmjs.getSlurmVersion();
-        slurmInstalled = true;
-    } catch {
-        slurmInstalled = false;
-    }
-    const isRoot =
-        typeof process.getuid === "function" && process.getuid() === 0;
-    return { slurmInstalled, isRoot };
+    const slurmVersion = await slurmjs.getSlurmVersion().catch(() => {
+        console.error(`[agent] slurm not installed`);
+        return null;
+    });
+    return {
+        hostname: os.hostname(),
+        username: os.userInfo().username,
+        version: VERSION,
+        node: process.version,
+        slurmVersion,
+    };
 }
 
 async function connect(url, options) {
@@ -27,22 +28,19 @@ async function connect(url, options) {
     const id = options.name || os.hostname();
 
     // 注册只上报 id，其余环境信息在认证后由 backend:info 按需返回
-    const info = async () => ({
-        id,
-        hostname: os.hostname(),
-        username: os.userInfo().username,
-        version: VERSION,
-        node: process.version,
-        ...(await detectEnv()),
-    });
+    const info = await detectEnv();
 
-    const env = await info();
     console.log(`[agent] connecting to gateway ${url}`);
     console.log(`[agent] identity ${id}`);
-    console.log(
-        `[agent] slurm installed: ${env.slurmInstalled}, root: ${env.isRoot}`,
-    );
     console.log(`[agent] access key ${password}`);
+
+    if (info.username == "root") {
+        console.warn(`[agent] running as root, agent will close automatically in 10 minutes`);
+        setTimeout(() => {
+            console.log(`[agent] closing agent as root`);
+            process.exit(0);
+        }, 10 * 60 * 1000);
+    }
 
     const socket = io(url, {
         path: "/socket.io/",
@@ -106,7 +104,6 @@ async function connect(url, options) {
             }
         });
 
-    onSlurm("slurm:version", () => slurmjs.getSlurmVersion());
     onSlurm("slurm:list_queue", () => slurmjs.getSlurmQueueInfo());
     onSlurm("slurm:list_history", () =>
         slurmjs.getSlurmJobInfo(),
@@ -129,8 +126,7 @@ async function connect(url, options) {
     onSlurm("slurm:modify_account", (p) => slurmjs.modifySlurmAccount(p.where, p.set));
     onSlurm("slurm:delete_account", (p) => slurmjs.deleteSlurmAccount(p.name));
 
-    // 认证通过后才允许读取后端自身信息
-    onSlurm("backend:info", info);
+    onSlurm("backend:info", () => info);
 
     socket.on("disconnect", (reason) => {
         console.log(`[agent] disconnected (${reason}) — waiting to reconnect`);

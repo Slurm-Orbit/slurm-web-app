@@ -89,9 +89,8 @@ node server.js start http://localhost:3000 -n gpu-cluster -p my-secret
 | `/console/:id/nodes` | 节点列表，按分区分组 |
 | `/console/:id/nodes/:nodeName` | 节点详情与状态变更 |
 | `/console/:id/accounts` | 账户树，root 用户可增删改 |
-| `/console/:id/admin` | 管理入口（Slurm 安装功能开发中） |
 
-进入控制台后，左侧栏会根据 `slurmInstalled` 与 `isRoot` 呈现不同视图：加载中、正常控制台、安装引导（root 但未装 Slurm）、无权限提示。
+进入控制台后，左侧栏展示详情、作业、节点、账户四个入口。
 
 ## 权限说明
 
@@ -148,7 +147,6 @@ bun run lint:fix # 自动修复
 
 ## 路线图
 
-- [ ] Slurm 安装与初始化引导（`/console/:id/admin`）
 - [ ] 网关侧写操作鉴权
 - [ ] 作业提交表单
 - [ ] 多后端聚合视图
