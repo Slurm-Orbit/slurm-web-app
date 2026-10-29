@@ -1,12 +1,15 @@
 <script setup>
-definePageMeta({ middleware: 'console-auth', layout: 'console', title: '作业' })
+definePageMeta({ middleware: 'console-auth', layout: 'console', title: 'Jobs' })
 
 const route = useRoute()
 
 const backendId = route.params.id
 const tab = ref(route.query.tab === 'history' ? 'history' : 'queue')
-const rows = ref([])
+const queueRows = ref([])
+const historyRows = ref([])
 const statusFilter = ref('')
+
+const rows = computed(() => (tab.value === 'queue' ? queueRows.value : historyRows.value))
 
 const filteredRows = computed(() => {
   if (!statusFilter.value) return rows.value
@@ -19,7 +22,7 @@ const statusCounts = computed(() =>
     .sort(([a], [b]) => a.localeCompare(b))
 )
 
-// sacct 会把作业步骤（batch/extern 等）作为独立记录返回且 jobId 相同，去重保留首条主记录
+// sacct returns job steps (batch/extern/...) as separate rows sharing the jobId; keep the first
 const dedupeByJobId = (list) => {
   const seen = new Set()
   return list.filter(({ jobId }) => !seen.has(String(jobId)) && seen.add(String(jobId)))
@@ -32,7 +35,12 @@ function openJob(row) {
 async function load() {
   error.value = ''
   try {
-    rows.value = dedupeByJobId(await request(tab.value === 'queue' ? 'slurm:list_queue' : 'slurm:list_history'))
+    const [queue, history] = await Promise.all([
+      request('slurm:list_queue'),
+      request('slurm:list_history')
+    ])
+    queueRows.value = dedupeByJobId(queue)
+    historyRows.value = dedupeByJobId(history)
   } catch (e) {
     error.value = e.message
   }
@@ -44,34 +52,31 @@ const { error, notice, acting, run } = useAction(refresh)
 function switchTab(next) {
   if (tab.value === next) return
   tab.value = next
-  rows.value = []
   statusFilter.value = ''
   notice.value = ''
-  refresh()
 }
 
 function holdJob(row) {
-  return run(`hold:${row.jobId}`, () => request('slurm:hold_job', { jobId: row.jobId }), `已挂起作业 #${row.jobId}`)
+  return run(`hold:${row.jobId}`, () => request('slurm:hold_job', { jobId: row.jobId }), `Job #${row.jobId} held`)
 }
 
 function releaseJob(row) {
-  return run(`release:${row.jobId}`, () => request('slurm:release_job', { jobId: row.jobId }), `已释放作业 #${row.jobId}`)
+  return run(`release:${row.jobId}`, () => request('slurm:release_job', { jobId: row.jobId }), `Job #${row.jobId} released`)
 }
 
 function cancelJob(row) {
-  if (!window.confirm(`确定取消作业 #${row.jobId}（${row.name || '未命名'}）？`)) return
-  return run(`cancel:${row.jobId}`, () => request('slurm:cancel_job', { jobId: row.jobId }), `已取消作业 #${row.jobId}`)
+  if (!window.confirm(`Cancel job #${row.jobId} (${row.name || 'unnamed'})?`)) return
+  return run(`cancel:${row.jobId}`, () => request('slurm:cancel_job', { jobId: row.jobId }), `Job #${row.jobId} cancelled`)
 }
 
 onMounted(refresh)
 </script>
-
 <template>
   <div>
-    <div class="mb-4 flex flex-wrap items-center gap-3">
+    <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
       <UiCard rounded="xl" class="flex p-1">
         <button
-          v-for="item in [{ id: 'queue', label: '队列' }, { id: 'history', label: '历史' }]"
+          v-for="item in [{ id: 'queue', label: 'Queue' }, { id: 'history', label: 'History' }]"
           :key="item.id"
           type="button"
           class="rounded-lg px-4 py-1.5 text-sm transition"
@@ -81,9 +86,12 @@ onMounted(refresh)
           {{ item.label }}
         </button>
       </UiCard>
+      <UiButton variant="accent" @click="navigateTo(`/console/${backendId}/jobs/new`)">
+        New job
+      </UiButton>
     </div>
 
-    <!-- 状态筛选标签 -->
+    <!-- State filter -->
     <UiCard v-if="statusCounts.length" rounded="xl" class="mb-4 flex flex-wrap gap-1 p-1">
       <button
         type="button"
@@ -91,7 +99,7 @@ onMounted(refresh)
         :class="!statusFilter ? 'bg-white/10 text-white' : 'text-orbit-muted hover:text-white'"
         @click="statusFilter = ''"
       >
-        全部 {{ rows.length }}
+        All {{ rows.length }}
       </button>
       <button
         v-for="[s, count] in statusCounts"
@@ -109,31 +117,31 @@ onMounted(refresh)
     <UiAlert v-if="notice" type="ok" class="mb-4">{{ notice }}</UiAlert>
     <UiAlert v-if="error" class="mb-4">{{ error }}</UiAlert>
 
-    <!-- 队列 / 历史表格 -->
+    <!-- Queue / history table -->
     <UiCard class="overflow-x-auto">
       <table class="w-full min-w-[600px] table-fixed text-left text-sm">
         <thead>
           <tr class="border-b border-orbit-line text-[11px] uppercase tracking-wider text-orbit-muted">
             <th class="w-16 px-3 py-3 font-medium">ID</th>
-            <th class="w-[15%] px-3 py-3 font-medium">名称</th>
-            <th class="hidden w-20 px-3 py-3 font-medium xl:table-cell">用户</th>
-            <th class="hidden w-24 px-3 py-3 font-medium 2xl:table-cell">账户</th>
-            <th class="w-24 px-3 py-3 font-medium">分区</th>
-            <th class="w-24 px-3 py-3 font-medium">状态</th>
+            <th class="w-[15%] px-3 py-3 font-medium">Name</th>
+            <th class="hidden w-20 px-3 py-3 font-medium xl:table-cell">User</th>
+            <th class="hidden w-24 px-3 py-3 font-medium 2xl:table-cell">Account</th>
+            <th class="w-24 px-3 py-3 font-medium">Partition</th>
+            <th class="w-24 px-3 py-3 font-medium">State</th>
             <template v-if="tab === 'history'">
-              <th class="w-20 px-3 py-3 font-medium">退出码</th>
-              <th class="w-20 px-3 py-3 font-medium">已运行</th>
-              <th class="hidden w-36 px-3 py-3 font-medium xl:table-cell">提交时间</th>
-              <th class="hidden w-36 px-3 py-3 font-medium 2xl:table-cell">开始时间</th>
-              <th class="hidden w-36 px-3 py-3 font-medium 2xl:table-cell">结束时间</th>
+              <th class="w-20 px-3 py-3 font-medium">Exit code</th>
+              <th class="w-20 px-3 py-3 font-medium">Elapsed</th>
+              <th class="hidden w-36 px-3 py-3 font-medium xl:table-cell">Submitted</th>
+              <th class="hidden w-36 px-3 py-3 font-medium 2xl:table-cell">Started</th>
+              <th class="hidden w-36 px-3 py-3 font-medium 2xl:table-cell">Ended</th>
             </template>
             <template v-else>
               <th class="hidden w-16 px-3 py-3 font-medium 2xl:table-cell">CPU</th>
-              <th class="hidden w-20 px-3 py-3 font-medium 2xl:table-cell">内存/节点</th>
+              <th class="hidden w-20 px-3 py-3 font-medium 2xl:table-cell">Mem/node</th>
               <th class="hidden w-28 px-3 py-3 font-medium 2xl:table-cell">GRES</th>
-              <th class="hidden w-20 px-3 py-3 font-medium 2xl:table-cell">时限</th>
-              <th class="w-20 px-3 py-3 font-medium">已运行</th>
-              <th class="w-44 px-3 py-3 font-medium">操作</th>
+              <th class="hidden w-20 px-3 py-3 font-medium 2xl:table-cell">Time limit</th>
+              <th class="w-20 px-3 py-3 font-medium">Elapsed</th>
+              <th class="w-44 px-3 py-3 font-medium">Actions</th>
             </template>
           </tr>
         </thead>
@@ -149,7 +157,7 @@ onMounted(refresh)
             <td class="hidden truncate px-3 py-3 text-orbit-muted xl:table-cell">{{ fmt(row.user) }}</td>
             <td class="hidden truncate px-3 py-3 text-orbit-muted 2xl:table-cell">{{ fmt(row.account) }}</td>
             <td class="truncate px-3 py-3 text-orbit-muted">{{ fmt(row.partition) }}</td>
-            <td class="truncate px-3 py-3" :class="stateClass(row.status)">{{ fmt(jobStatus(row.status)) }}</td>
+            <td class="truncate px-3 py-3" :class="stateClass(row.status)">{{ jobStateLabel(row) }}</td>
             <template v-if="tab === 'history'">
               <td class="px-3 py-3 text-orbit-muted">{{ fmt(row.exitCode) }}</td>
               <td class="px-3 py-3 text-orbit-muted">{{ jobElapsed(row) }}</td>
@@ -166,21 +174,21 @@ onMounted(refresh)
               <td class="hidden px-3 py-3 text-orbit-muted 2xl:table-cell">{{ fmtLimit(row.timeLimit) }}</td>
               <td class="px-3 py-3 text-orbit-muted">{{ jobElapsed(row) }}</td>
               <td class="px-3 py-3">
-                <JobActions
-                  :job="row"
-                  :acting="acting"
-                  @hold="holdJob"
-                  @release="releaseJob"
-                  @cancel="cancelJob"
-                />
+                <div class="flex flex-wrap items-center gap-1.5">
+                  <template v-if="isJobPending(row)">
+                    <UiChip v-if="!isJobHeld(row)" tone="warn" :disabled="!!acting" @click.stop="holdJob(row)">Hold</UiChip>
+                    <UiChip v-else tone="ok" :disabled="!!acting" @click.stop="releaseJob(row)">Release</UiChip>
+                  </template>
+                  <UiChip tone="danger" :disabled="!!acting" @click.stop="cancelJob(row)">Cancel</UiChip>
+                </div>
               </td>
             </template>
           </tr>
         </tbody>
       </table>
-      <UiEmpty v-if="!filteredRows.length" class="px-4">
-        {{ rows.length ? '没有匹配该状态的作业' : tab === 'queue' ? '队列中没有作业' : '暂无历史作业' }}
-      </UiEmpty>
+      <p v-if="!filteredRows.length" class="px-4 py-8 text-center text-sm text-orbit-muted">
+        {{ rows.length ? 'No jobs match this state' : tab === 'queue' ? 'Queue is empty' : 'No job history' }}
+      </p>
     </UiCard>
   </div>
 </template>

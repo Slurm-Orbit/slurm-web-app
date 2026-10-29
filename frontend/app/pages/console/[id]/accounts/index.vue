@@ -1,13 +1,15 @@
 <script setup>
-definePageMeta({ middleware: 'console-auth', layout: 'console', title: '账户' })
+definePageMeta({ middleware: 'console-auth', layout: 'console', title: 'Accounts' })
 
 const rows = ref([])
-// 权限由 console 布局按后端环境推导后注入
+// Permission is derived from the backend environment by the console layout
 const { isRoot: admin } = inject('consoleAuth')
 
 const showAdd = ref(false)
 const form = ref({ name: '', parent: '', description: '' })
 const editing = ref(null)
+// Expansion is tracked as collapsed names so new accounts show up expanded by default
+const collapsed = ref(new Set())
 
 const tree = computed(() => {
   const map = new Map(rows.value.map((account) => [account.name, { ...account, children: [] }]))
@@ -22,6 +24,47 @@ const tree = computed(() => {
   for (const account of map.values()) account.children.sort(byName)
   return roots
 })
+
+const RAIL = 28 // px of indent per level
+const GAP = 12 // px between rows (space-y-3); rails overhang by this much to stay continuous
+
+// Vertical rails for a row at `depth`. Ancestor levels keep a full-height rail while their branch
+// still has siblings below; the innermost level stops at the row centre to form the corner.
+function railsFor(depth, guides) {
+  const rails = []
+  for (let level = 0; level < depth; level++) {
+    const branch = level === depth - 1
+    if (!branch && !guides[level]) continue
+    const through = branch ? guides[level] : true
+    rails.push({
+      left: level * RAIL + RAIL / 2,
+      top: -GAP,
+      height: through ? `calc(100% + ${GAP}px)` : `calc(50% + ${GAP}px)`
+    })
+  }
+  return rails
+}
+
+// Flattening keeps the markup flat: depth drives the indent, collapsed subtrees are skipped
+const rowsWithDepth = computed(() => {
+  const out = []
+  const walk = (nodes, depth, guides) => {
+    nodes.forEach((node, index) => {
+      const isLast = index === nodes.length - 1
+      out.push({ ...node, depth, rails: railsFor(depth, guides) })
+      if (!collapsed.value.has(node.name)) walk(node.children, depth + 1, [...guides, !isLast])
+    })
+  }
+  walk(tree.value, 0, [])
+  return out
+})
+
+function toggle(name) {
+  const next = new Set(collapsed.value)
+  if (next.has(name)) next.delete(name)
+  else next.add(name)
+  collapsed.value = next
+}
 
 async function load() {
   error.value = ''
@@ -42,7 +85,7 @@ async function addAccount() {
     name,
     parent: form.value.parent.trim(),
     description: form.value.description.trim()
-  }), `已创建账户 ${name}`)
+  }), `Account ${name} created`)
   if (!ok) return
   showAdd.value = false
   form.value = { name: '', parent: '', description: '' }
@@ -54,15 +97,15 @@ function startEdit(row) {
 
 async function saveEdit() {
   const { name, set } = editing.value
-  if (await run(name, () => request('slurm:modify_account', { where: name, set }), `已更新账户 ${name}`)) {
+  if (await run(name, () => request('slurm:modify_account', { where: name, set }), `Account ${name} updated`)) {
     editing.value = null
   }
 }
 
 async function removeAccount(row) {
   if (row.name === 'root') return
-  if (!window.confirm(`确定删除账户 ${row.name}？该操作不可恢复。`)) return
-  await run(row.name, () => request('slurm:delete_account', { name: row.name }), `已删除账户 ${row.name}`)
+  if (!window.confirm(`Delete account ${row.name}? This cannot be undone.`)) return
+  await run(row.name, () => request('slurm:delete_account', { name: row.name }), `Account ${row.name} deleted`)
 }
 
 onMounted(refresh)
@@ -72,34 +115,34 @@ onMounted(refresh)
   <div>
     <div class="mb-4 flex items-center gap-3">
       <UiButton v-if="admin" variant="accent" @click="showAdd = !showAdd">
-        {{ showAdd ? '收起新增' : '新增账户' }}
+        {{ showAdd ? 'Hide form' : 'New account' }}
       </UiButton>
-      <span class="text-xs text-orbit-muted">{{ rows.length }} 个账户</span>
+      <span class="text-xs text-orbit-muted">{{ rows.length }} accounts</span>
     </div>
 
-    <!-- 新增账户 -->
+    <!-- New account -->
     <UiCard v-if="showAdd && admin" class="mb-4 p-4">
       <div class="flex flex-wrap items-end gap-3">
         <label class="flex flex-col gap-1">
-          <UiLabel>账户名</UiLabel>
-          <UiInput v-model="form.name" placeholder="如 project_a" class="w-48" :disabled="!!acting" />
+          <UiLabel>Name</UiLabel>
+          <UiInput v-model="form.name" placeholder="e.g. project_a" class="w-48" :disabled="!!acting" />
         </label>
         <label class="flex flex-col gap-1">
-          <UiLabel>父账户</UiLabel>
-          <UiInput v-model="form.parent" placeholder="如 root" class="w-40" :disabled="!!acting" />
+          <UiLabel>Parent</UiLabel>
+          <UiInput v-model="form.parent" placeholder="e.g. root" class="w-40" :disabled="!!acting" />
         </label>
         <label class="flex flex-1 flex-col gap-1">
-          <UiLabel>描述</UiLabel>
+          <UiLabel>Description</UiLabel>
           <UiInput
             v-model="form.description"
-            placeholder="账户描述"
+            placeholder="Account description"
             class="w-full min-w-[200px]"
             :disabled="!!acting"
             @keydown.enter.prevent="addAccount"
           />
         </label>
         <UiButton variant="accent" :disabled="!!acting || !form.name.trim()" @click="addAccount">
-          {{ acting === 'add' ? '创建中…' : '创建' }}
+          {{ acting === 'add' ? 'Creating…' : 'Create' }}
         </UiButton>
       </div>
     </UiCard>
@@ -107,21 +150,99 @@ onMounted(refresh)
     <UiAlert v-if="notice" type="ok" class="mb-4">{{ notice }}</UiAlert>
     <UiAlert v-if="error" class="mb-4">{{ error }}</UiAlert>
 
-    <div v-if="tree.length" class="space-y-3 py-2">
-      <AccountTreeItem
-        v-for="account in tree"
+    <div v-if="rowsWithDepth.length" class="space-y-3 py-2">
+      <div
+        v-for="account in rowsWithDepth"
         :key="account.name"
-        v-model:editing="editing"
-        :account="account"
-        :admin="admin"
-        :acting="acting"
-        @edit="startEdit"
-        @save="saveEdit"
-        @cancel="editing = null"
-        @remove="removeAccount"
-      />
+        class="relative"
+        :style="{ paddingLeft: `${account.depth * RAIL}px` }"
+      >
+        <span
+          v-for="(rail, i) in account.rails"
+          :key="`rail-${i}`"
+          class="absolute w-px bg-orbit-line"
+          :style="{ left: `${rail.left}px`, top: `${rail.top}px`, height: rail.height }"
+          aria-hidden="true"
+        />
+        <span
+          v-if="account.depth"
+          class="absolute top-1/2 h-px bg-orbit-line"
+          :style="{ left: `${(account.depth - 1) * RAIL + RAIL / 2}px`, width: `${RAIL / 2}px` }"
+          aria-hidden="true"
+        />
+        <span
+          v-if="account.depth"
+          class="absolute top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-orbit-muted"
+          :style="{ left: `${(account.depth - 1) * RAIL + RAIL / 2}px` }"
+          aria-hidden="true"
+        />
+
+        <UiCard class="flex items-center gap-3 px-4 py-3 transition hover:border-orbit-accent/25">
+          <button
+            v-if="account.children.length"
+            type="button"
+            class="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-orbit-muted
+                   transition hover:bg-white/5 hover:text-white"
+            :aria-expanded="!collapsed.has(account.name)"
+            title="Expand/collapse"
+            @click="toggle(account.name)"
+          >
+            <svg
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              class="h-4 w-4 transition-transform"
+              :class="collapsed.has(account.name) ? '-rotate-90' : ''"
+            >
+              <path d="M4 6l4 4 4-4" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </button>
+          <span v-else class="h-6 w-6 shrink-0" aria-hidden="true" />
+
+          <div class="min-w-0 flex-1">
+            <div class="flex flex-wrap items-center gap-1.5">
+              <p class="truncate text-sm font-medium text-white">{{ account.name }}</p>
+              <span
+                v-for="flag in account.flags || []"
+                :key="flag"
+                class="rounded-full border border-orbit-warn/30 px-2 py-0.5 text-[10px] leading-none text-orbit-warn"
+              >
+                {{ flag }}
+              </span>
+            </div>
+
+            <div v-if="editing?.name === account.name" class="mt-1.5 flex items-center gap-1.5">
+              <UiInput
+                v-model="editing.set"
+                size="sm"
+                class="min-w-0 flex-1"
+                :disabled="!!acting"
+                @keydown.enter.prevent="saveEdit"
+              />
+              <UiChip tone="ok" class="shrink-0" :disabled="!!acting" @click="saveEdit">Save</UiChip>
+              <UiChip tone="accent" class="shrink-0" :disabled="!!acting" @click="editing = null">Cancel</UiChip>
+            </div>
+            <p v-else class="mt-1 truncate text-xs text-orbit-muted" :title="account.description">
+              {{ account.description || '—' }}
+            </p>
+          </div>
+
+          <div v-if="admin && editing?.name !== account.name" class="flex shrink-0 items-center gap-1.5">
+            <UiChip tone="accent" :disabled="!!acting" @click="startEdit(account)">Edit</UiChip>
+            <UiChip
+              v-if="account.name !== 'root'"
+              tone="danger"
+              :disabled="!!acting"
+              @click="removeAccount(account)"
+            >
+              Delete
+            </UiChip>
+          </div>
+        </UiCard>
+      </div>
     </div>
 
-    <UiEmpty v-else class="px-5 py-10">暂无账户</UiEmpty>
+    <p v-else class="px-5 py-8 text-center text-sm text-orbit-muted">No accounts</p>
   </div>
 </template>

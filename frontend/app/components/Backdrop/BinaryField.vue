@@ -1,5 +1,5 @@
 <script setup>
-// useState 在服务端生成并随 payload 序列化，客户端直接复用，无需等到挂载
+// useState is generated on the server and serialized with the payload, so the client reuses it without waiting for mount
 const corners = useState('backdrop:binary-field', () =>
   Array.from({ length: 4 }, (_, i) => ({
     cls: `${i % 2 ? 'right-0' : 'left-0'} ${i < 2 ? 'top-0 items-start' : 'bottom-0 items-end'}`,

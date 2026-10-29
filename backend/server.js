@@ -2,6 +2,7 @@ import { program } from "commander";
 import { io } from "socket.io-client";
 import { randomUUID } from "node:crypto";
 import os from "node:os";
+import path from "node:path";
 import * as fsp from "node:fs/promises";
 import * as slurmjs from "slurmjs";
 
@@ -27,7 +28,7 @@ async function connect(url, options) {
     const password = options.password || randomUUID();
     const id = options.name || os.hostname();
 
-    // 注册只上报 id，其余环境信息在认证后由 backend:info 按需返回
+    // Only the id is announced at registration; environment info is served by backend:info after auth
     const info = await detectEnv();
 
     console.log(`[agent] connecting to gateway ${url}`);
@@ -78,18 +79,18 @@ async function connect(url, options) {
         ack?.({ ok: true });
     });
 
-    async function jobOutput(path) {
+    async function jobOutput(filePath) {
         const maxOutputBytes = 256 * 1024;
         let handle;
         try {
-            handle = await fsp.open(path);
+            handle = await fsp.open(filePath);
             const { size } = await handle.stat();
             const start = Math.max(0, size - maxOutputBytes);
             const buf = Buffer.alloc(size - start);
             if (buf.length) await handle.read(buf, 0, buf.length, start);
-            return { path, size, truncated: start > 0, content: buf.toString("utf-8") };
+            return { path: filePath, size, truncated: start > 0, content: buf.toString("utf-8") };
         } catch (err) {
-            throw new Error(`读取失败：${err.message}`, { cause: err });
+            throw new Error(`read failed: ${err.message}`, { cause: err });
         } finally {
             await handle?.close();
         }
@@ -104,6 +105,17 @@ async function connect(url, options) {
             }
         });
 
+    // sbatch rejects CRLF, so line endings are normalized before the script is written
+    async function submitJob({ fileName, content }) {
+        const name = String(fileName || "").trim();
+        if (!name) throw new Error("file path is required");
+        const target = path.resolve(process.cwd(), name);
+        const script = String(content ?? "").replace(/\r\n?/g, "\n");
+        await fsp.mkdir(path.dirname(target), { recursive: true });
+        await fsp.writeFile(target, script, { mode: 0o644, flag: "wx" });
+        return { jobId: await slurmjs.submitSlurmJob(target), path: target };
+    }
+
     onSlurm("slurm:list_queue", () => slurmjs.getSlurmQueueInfo());
     onSlurm("slurm:list_history", () =>
         slurmjs.getSlurmJobInfo(),
@@ -113,7 +125,7 @@ async function connect(url, options) {
     onSlurm("slurm:list_accounts", () => slurmjs.getSlurmAccountInfo());
     onSlurm("slurm:job_stat", (p) => slurmjs.getSlurmJobStat(p.jobId, p.target));
     onSlurm("slurm:job_output", (p) => jobOutput(p.path));
-    onSlurm("slurm:submit_job", (p) => slurmjs.submitSlurmJob(p.jobScript));
+    onSlurm("slurm:submit_job", (p) => submitJob(p));
     onSlurm("slurm:cancel_job", (p) => slurmjs.cancelSlurmJob(String(p.jobId)));
     onSlurm("slurm:hold_job", (p) => slurmjs.holdSlurmJob(String(p.jobId)));
     onSlurm("slurm:release_job", (p) => slurmjs.releaseSlurmJob(String(p.jobId)));

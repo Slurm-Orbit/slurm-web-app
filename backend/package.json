@@ -5,7 +5,7 @@
   },
   "dependencies": {
     "commander": "^15.0.0",
-    "slurmjs": "^1.0.0",
+    "slurmjs": "1.1.0",
     "socket.io-client": "^4.8.4"
   },
   "devDependencies": {

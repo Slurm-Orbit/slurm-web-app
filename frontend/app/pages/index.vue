@@ -1,6 +1,9 @@
 <script setup>
 const gateway = useGateway()
 
+const agentCount = computed(() => Object.keys(gateway.value).length)
+const online = computed(() => agentCount.value > 0)
+
 function enter(entry, id) {
   if (!entry.password) return
   entry.error = ''
@@ -9,8 +12,8 @@ function enter(entry, id) {
 </script>
 
 <template>
-  <div class="fixed inset-0 overflow-hidden">
-    <div class="absolute inset-0 z-0 overflow-hidden" aria-hidden="true">
+  <div class="relative h-full overflow-y-auto overscroll-contain">
+    <div class="pointer-events-none fixed inset-0 z-0 overflow-hidden" aria-hidden="true">
       <BackdropAmbientLight class="absolute -left-24 -top-32 h-[420px] w-[420px] bg-white/10 blur-[130px]" />
       <BackdropAmbientLight class="absolute -right-16 -bottom-40 h-[520px] w-[520px] bg-white/[0.06] blur-[150px]" />
       <BackdropAmbientLight class="absolute left-1/2 top-[28%] h-[260px] w-[520px] -translate-x-1/2 bg-white/[0.04] blur-[110px]" />
@@ -18,22 +21,33 @@ function enter(entry, id) {
       <BackdropBinaryField />
     </div>
 
-    <div class="relative z-10 mx-auto flex min-h-full w-full max-w-5xl flex-col px-6 py-8 sm:px-10">
-      <header class="flex items-center justify-between gap-4">
-        <div class="flex items-center gap-3">
-          <img src="/icon.svg" alt="" class="h-8 w-8 brightness-0 invert opacity-90">
-          <div>
-            <p class="text-sm font-semibold tracking-tight text-white">Slurm Orbital</p>
-            <p class="text-xs text-orbit-muted">Distributed compute gateway</p>
+    <div class="relative z-10 flex min-h-full w-full flex-col px-5 py-6 sm:px-10 sm:py-8">
+      <header class="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+        <div class="flex min-w-0 items-center gap-3">
+          <img src="/icon.svg" alt="" class="h-8 w-8 shrink-0 brightness-0 invert opacity-90">
+          <div class="min-w-0">
+            <p class="truncate text-sm font-semibold tracking-tight text-white">Slurm Orbital</p>
+            <p class="truncate text-xs text-orbit-muted">Distributed compute gateway</p>
           </div>
         </div>
-        <StatusIndicator :count="Object.keys(gateway).length" />
+        <span
+          class="inline-flex items-center gap-2 rounded-full border border-orbit-line bg-orbit-card px-3 py-1.5
+                 text-xs text-orbit-muted backdrop-blur-md"
+        >
+          <i
+            class="inline-block h-1.5 w-1.5 rounded-full"
+            :class="online
+              ? 'bg-orbit-ok shadow-[0_0_8px_2px_rgba(60,190,122,0.85)]'
+              : 'bg-[#8d9aab]'"
+          />
+          {{ online ? `${agentCount} online` : 'Waiting for connection' }}
+        </span>
       </header>
 
-      <main class="flex flex-1 flex-col justify-center py-12">
-        <div class="mb-10 max-w-xl">
+      <main class="flex flex-1 flex-col justify-center py-10 sm:py-12">
+        <div class="mb-8 max-w-xl sm:mb-10">
           <p class="mb-3 text-xs uppercase tracking-[0.2em] text-orbit-accent">Gateway</p>
-          <h1 class="text-4xl font-semibold tracking-tight text-white sm:text-5xl">
+          <h1 class="text-3xl font-semibold tracking-tight text-white sm:text-4xl lg:text-5xl">
             Connect to your cluster
           </h1>
           <p class="mt-4 text-base leading-relaxed text-orbit-muted">
@@ -42,7 +56,7 @@ function enter(entry, id) {
         </div>
 
         <!-- Waiting -->
-        <UiCard v-if="!Object.keys(gateway).length" glow class="max-w-lg p-7">
+        <UiCard v-if="!agentCount" glow class="max-w-lg p-7">
           <div class="flex items-start gap-4">
             <UiSpinner class="mt-0.5" />
             <div>

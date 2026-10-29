@@ -1,12 +1,18 @@
 /**
- * 页面把加载动作交给 console 布局：刷新按钮在标题栏，由布局统一触发并维护等待状态与更新时间。
- * 返回 refresh 供首次加载和操作后重新拉取，与标题栏按钮走同一条路径。
+ * Registers the page loader with the console layout, which owns the refresh button,
+ * the pending state and the timestamp. Returns refresh so the page can load on mount
+ * and reload after mutations through the same path.
  */
 export function usePageRefresh(load) {
   const page = inject('pageRefresh')
 
+  // The incoming page registers before the outgoing page unmounts, so the timestamp
+  // belongs to the previous page until this one finishes its first load
   page.load = load
+  page.updatedAt = null
+
   onUnmounted(() => {
+    if (page.load !== load) return
     page.load = null
   })
 

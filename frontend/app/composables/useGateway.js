@@ -5,7 +5,7 @@ let socket = null
 export function useGateway() {
   const gateway = useState('gateway', () => ({}))
 
-  /** 按网关推送的 id 列表就地更新字典：复用已有条目对象，移除已下线的 id */
+  /** Sync the dictionary with the id list from the gateway, reusing existing entries */
   function sync(ids) {
     const next = {}
     for (const id of ids) {
@@ -30,7 +30,7 @@ export function useGateway() {
   return gateway
 }
 
-/** 经网关发请求（event 即 agent 侧监听的信号名），返回 agent 的 data */
+/** Send a request through the gateway (event is the name the agent listens on) */
 export function request(event, payload, timeoutMs = 12000) {
   return new Promise((resolve, reject) => {
     if (!socket?.connected) {

@@ -90,7 +90,7 @@ node server.js start http://localhost:3000 -n gpu-cluster -p my-secret
 | `/console/:id/nodes/:nodeName` | 节点详情与状态变更 |
 | `/console/:id/accounts` | 账户树，root 用户可增删改 |
 
-进入控制台后，左侧栏展示详情、作业、节点、账户四个入口。
+进入控制台后，左侧栏展示概览、作业、节点、账户四个入口。
 
 ## 权限说明
 
