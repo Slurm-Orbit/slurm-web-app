@@ -90,7 +90,7 @@ provide('pageRefresh', pageRefresh)
         <div class="flex items-center gap-3 border-b border-orbit-line px-4 py-3 sm:px-5 lg:block lg:py-5">
           <button
             type="button"
-            class="shrink-0 text-sm text-orbit-muted transition hover:text-orbit-accent"
+            class="shrink-0 cursor-pointer text-sm text-orbit-muted transition hover:text-orbit-accent"
             @click="navigateTo('/')"
           >
             ← Back to gateway
@@ -98,7 +98,7 @@ provide('pageRefresh', pageRefresh)
           <h1 class="min-w-0 flex-1 truncate text-base font-semibold tracking-tight text-white lg:mt-4 lg:text-lg">
             {{ backend?.hostname || backendId }}
           </h1>
-          <UiLabel class="hidden lg:mt-1 lg:block">Console</UiLabel>
+          <span class="hidden text-[11px] uppercase tracking-wider text-orbit-muted lg:mt-1 lg:block">Console</span>
           <UiTag v-if="isRoot" tone="default" class="shrink-0 lg:mt-3">root</UiTag>
         </div>
 

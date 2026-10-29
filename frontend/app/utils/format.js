@@ -30,15 +30,10 @@ export function isJobPending(job) {
   return jobStatus(job?.status).toLowerCase().includes('pending')
 }
 
-/** squeue reports a held job as PENDING + hold=true; sacct history rows omit the field */
-export function isJobHeld(job) {
-  return !!job?.hold
-}
-
 /** Status label with the hold reason, e.g. "PENDING (held)" */
 export function jobStateLabel(job) {
   const status = jobStatus(job?.status)
-  return isJobHeld(job) ? `${status} (held)` : status
+  return job?.hold ? `${status} (held)` : status
 }
 
 /** Memory in MB → human readable size */

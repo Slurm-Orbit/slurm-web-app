@@ -15,7 +15,7 @@ const tones = {
 <template>
   <button
     type="button"
-    class="rounded-lg border px-2 py-1 text-xs transition disabled:opacity-50"
+    class="cursor-pointer rounded-lg border px-2 py-1 text-xs transition disabled:cursor-not-allowed disabled:opacity-50"
     :class="tones[props.tone] || tones.default"
   >
     <slot />

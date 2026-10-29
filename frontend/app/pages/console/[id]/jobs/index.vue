@@ -1,4 +1,5 @@
-<script setup>
+<script setup lang="jsx">
+import Chip from '~/components/ui/Chip.vue'
 definePageMeta({ middleware: 'console-auth', layout: 'console', title: 'Jobs' })
 
 const route = useRoute()
@@ -21,6 +22,19 @@ const statusCounts = computed(() =>
     .map(([status, list]) => [status, list.length])
     .sort(([a], [b]) => a.localeCompare(b))
 )
+
+// Name has no width so it alone absorbs the leftover space. Every other column keeps a fixed
+// px width shared by both tabs, and both tabs add up to the same fixed total at each breakpoint
+// (496 at base, 576 at xl, 1104 at 2xl), so the table keeps one geometry and switching tabs
+// never resizes it or shifts a column.
+const sharedHeaders = ['ID', 'Name', 'User', 'Account', 'Partition', 'State']
+const sharedWidths = ['w-16', '', 'hidden w-20 xl:table-cell', 'hidden w-24 2xl:table-cell', 'w-24', 'w-24']
+const headers = computed(() => sharedHeaders.concat(tab.value === 'history'
+  ? ['Exit code', 'Elapsed', 'Submitted', 'Started', 'Ended']
+  : ['CPU', 'Mem/node', 'GRES', 'Time limit', 'Elapsed', 'Actions']))
+const widths = computed(() => sharedWidths.concat(tab.value === 'history'
+  ? ['w-40', 'w-20', 'hidden w-36 2xl:table-cell', 'hidden w-36 2xl:table-cell', 'hidden w-36 2xl:table-cell']
+  : ['hidden w-16 2xl:table-cell', 'hidden w-24 2xl:table-cell', 'hidden w-36 2xl:table-cell', 'hidden w-32 2xl:table-cell', 'w-20', 'w-40']))
 
 // sacct returns job steps (batch/extern/...) as separate rows sharing the jobId; keep the first
 const dedupeByJobId = (list) => {
@@ -69,6 +83,36 @@ function cancelJob(row) {
   return run(`cancel:${row.jobId}`, () => request('slurm:cancel_job', { jobId: row.jobId }), `Job #${row.jobId} cancelled`)
 }
 
+function jobCells(row) {
+  const disabled = !!acting.value
+  const pending = isJobPending(row)
+  const cells = [
+    <span class="block max-w-full truncate font-medium text-white">{fmt(row.jobId)}</span>,
+    fmt(row.name),
+    fmt(row.user),
+    fmt(row.account),
+    fmt(row.partition),
+    <span class={['block max-w-full truncate', stateClass(row.status)]}>{jobStateLabel(row)}</span>
+  ]
+  if (tab.value === 'history') {
+    cells.push(fmt(row.exitCode), jobElapsed(row), fmtDate(row.submitTime), fmtDate(row.startTime), fmtDate(row.endTime))
+    return cells
+  }
+  cells.push(
+    fmt(row.cpus),
+    fmtSize(row.memory),
+    fmt(row.gres),
+    fmtLimit(row.timeLimit),
+    jobElapsed(row),
+    <div class="flex flex-wrap items-center gap-1.5">
+      {pending && !row.hold && <Chip tone="warn" disabled={disabled} onClick={withModifiers(() => holdJob(row), ['stop'])}>Hold</Chip>}
+      {pending && row.hold && <Chip tone="ok" disabled={disabled} onClick={withModifiers(() => releaseJob(row), ['stop'])}>Release</Chip>}
+      <Chip tone="danger" disabled={disabled} onClick={withModifiers(() => cancelJob(row), ['stop'])}>Cancel</Chip>
+    </div>
+  )
+  return cells
+}
+
 onMounted(refresh)
 </script>
 <template>
@@ -79,7 +123,7 @@ onMounted(refresh)
           v-for="item in [{ id: 'queue', label: 'Queue' }, { id: 'history', label: 'History' }]"
           :key="item.id"
           type="button"
-          class="rounded-lg px-4 py-1.5 text-sm transition"
+          class="cursor-pointer rounded-lg px-4 py-1.5 text-sm transition"
           :class="tab === item.id ? 'bg-white/10 text-white' : 'text-orbit-muted hover:text-white'"
           @click="switchTab(item.id)"
         >
@@ -95,7 +139,7 @@ onMounted(refresh)
     <UiCard v-if="statusCounts.length" rounded="xl" class="mb-4 flex flex-wrap gap-1 p-1">
       <button
         type="button"
-        class="rounded-lg px-3 py-1.5 text-xs transition"
+        class="cursor-pointer rounded-lg px-3 py-1.5 text-xs transition"
         :class="!statusFilter ? 'bg-white/10 text-white' : 'text-orbit-muted hover:text-white'"
         @click="statusFilter = ''"
       >
@@ -105,7 +149,7 @@ onMounted(refresh)
         v-for="[s, count] in statusCounts"
         :key="s"
         type="button"
-        class="rounded-lg px-3 py-1.5 text-xs transition"
+        class="cursor-pointer rounded-lg px-3 py-1.5 text-xs transition"
         :class="statusFilter === s ? 'bg-white/10' : 'hover:bg-white/5'"
         @click="statusFilter = statusFilter === s ? '' : s"
       >
@@ -117,75 +161,16 @@ onMounted(refresh)
     <UiAlert v-if="notice" type="ok" class="mb-4">{{ notice }}</UiAlert>
     <UiAlert v-if="error" class="mb-4">{{ error }}</UiAlert>
 
-    <!-- Queue / history table -->
     <UiCard class="overflow-x-auto">
-      <table class="w-full min-w-[600px] table-fixed text-left text-sm">
-        <thead>
-          <tr class="border-b border-orbit-line text-[11px] uppercase tracking-wider text-orbit-muted">
-            <th class="w-16 px-3 py-3 font-medium">ID</th>
-            <th class="w-[15%] px-3 py-3 font-medium">Name</th>
-            <th class="hidden w-20 px-3 py-3 font-medium xl:table-cell">User</th>
-            <th class="hidden w-24 px-3 py-3 font-medium 2xl:table-cell">Account</th>
-            <th class="w-24 px-3 py-3 font-medium">Partition</th>
-            <th class="w-24 px-3 py-3 font-medium">State</th>
-            <template v-if="tab === 'history'">
-              <th class="w-20 px-3 py-3 font-medium">Exit code</th>
-              <th class="w-20 px-3 py-3 font-medium">Elapsed</th>
-              <th class="hidden w-36 px-3 py-3 font-medium xl:table-cell">Submitted</th>
-              <th class="hidden w-36 px-3 py-3 font-medium 2xl:table-cell">Started</th>
-              <th class="hidden w-36 px-3 py-3 font-medium 2xl:table-cell">Ended</th>
-            </template>
-            <template v-else>
-              <th class="hidden w-16 px-3 py-3 font-medium 2xl:table-cell">CPU</th>
-              <th class="hidden w-20 px-3 py-3 font-medium 2xl:table-cell">Mem/node</th>
-              <th class="hidden w-28 px-3 py-3 font-medium 2xl:table-cell">GRES</th>
-              <th class="hidden w-20 px-3 py-3 font-medium 2xl:table-cell">Time limit</th>
-              <th class="w-20 px-3 py-3 font-medium">Elapsed</th>
-              <th class="w-44 px-3 py-3 font-medium">Actions</th>
-            </template>
-          </tr>
-        </thead>
-        <tbody>
-          <tr
-            v-for="row in filteredRows"
-            :key="row.jobId"
-            class="cursor-pointer border-b border-orbit-line/50 last:border-0 hover:bg-white/5"
-            @click="openJob(row)"
-          >
-            <td class="truncate px-3 py-3 font-medium text-white">{{ fmt(row.jobId) }}</td>
-            <td class="truncate px-3 py-3 text-orbit-muted" :title="fmt(row.name)">{{ fmt(row.name) }}</td>
-            <td class="hidden truncate px-3 py-3 text-orbit-muted xl:table-cell">{{ fmt(row.user) }}</td>
-            <td class="hidden truncate px-3 py-3 text-orbit-muted 2xl:table-cell">{{ fmt(row.account) }}</td>
-            <td class="truncate px-3 py-3 text-orbit-muted">{{ fmt(row.partition) }}</td>
-            <td class="truncate px-3 py-3" :class="stateClass(row.status)">{{ jobStateLabel(row) }}</td>
-            <template v-if="tab === 'history'">
-              <td class="px-3 py-3 text-orbit-muted">{{ fmt(row.exitCode) }}</td>
-              <td class="px-3 py-3 text-orbit-muted">{{ jobElapsed(row) }}</td>
-              <td class="hidden px-3 py-3 text-orbit-muted xl:table-cell">{{ fmtDate(row.submitTime) }}</td>
-              <td class="hidden px-3 py-3 text-orbit-muted 2xl:table-cell">{{ fmtDate(row.startTime) }}</td>
-              <td class="hidden px-3 py-3 text-orbit-muted 2xl:table-cell">{{ fmtDate(row.endTime) }}</td>
-            </template>
-            <template v-else>
-              <td class="hidden px-3 py-3 text-orbit-muted 2xl:table-cell">{{ fmt(row.cpus) }}</td>
-              <td class="hidden px-3 py-3 text-orbit-muted 2xl:table-cell">{{ fmtSize(row.memory) }}</td>
-              <td class="hidden truncate px-3 py-3 text-orbit-muted 2xl:table-cell" :title="fmt(row.gres)">
-                {{ fmt(row.gres) }}
-              </td>
-              <td class="hidden px-3 py-3 text-orbit-muted 2xl:table-cell">{{ fmtLimit(row.timeLimit) }}</td>
-              <td class="px-3 py-3 text-orbit-muted">{{ jobElapsed(row) }}</td>
-              <td class="px-3 py-3">
-                <div class="flex flex-wrap items-center gap-1.5">
-                  <template v-if="isJobPending(row)">
-                    <UiChip v-if="!isJobHeld(row)" tone="warn" :disabled="!!acting" @click.stop="holdJob(row)">Hold</UiChip>
-                    <UiChip v-else tone="ok" :disabled="!!acting" @click.stop="releaseJob(row)">Release</UiChip>
-                  </template>
-                  <UiChip tone="danger" :disabled="!!acting" @click.stop="cancelJob(row)">Cancel</UiChip>
-                </div>
-              </td>
-            </template>
-          </tr>
-        </tbody>
-      </table>
+      <UiTable compact class="min-w-[672px]" :widths="widths" :headers="headers">
+        <UiTableRow
+          v-for="row in filteredRows"
+          :key="row.jobId"
+          class="cursor-pointer"
+          :cells="jobCells(row)"
+          @click="openJob(row)"
+        />
+      </UiTable>
       <p v-if="!filteredRows.length" class="px-4 py-8 text-center text-sm text-orbit-muted">
         {{ rows.length ? 'No jobs match this state' : tab === 'queue' ? 'Queue is empty' : 'No job history' }}
       </p>

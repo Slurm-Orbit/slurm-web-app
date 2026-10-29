@@ -17,6 +17,7 @@ const error = ref('')
 const info = ref(null)
 const menuOpen = ref(false)
 const menuRef = ref(null)
+onClickOutside(menuRef, () => { menuOpen.value = false })
 
 const clampPct = (n) => Math.min(100, Math.max(0, n))
 
@@ -83,16 +84,7 @@ function applyState(action) {
   return run(action.state, () => request('slurm:update_node', { nodeName, state: action.state }), `${nodeName} state set to ${action.state}`)
 }
 
-function closeMenu(event) {
-  if (menuOpen.value && menuRef.value && !menuRef.value.contains(event.target)) menuOpen.value = false
-}
-
-onMounted(() => {
-  document.addEventListener('click', closeMenu)
-  refresh()
-})
-
-onBeforeUnmount(() => document.removeEventListener('click', closeMenu))
+onMounted(refresh)
 </script>
 
 <template>
@@ -110,8 +102,8 @@ onBeforeUnmount(() => document.removeEventListener('click', closeMenu))
         <div v-if="isRoot" ref="menuRef" class="relative">
           <button
             type="button"
-            class="inline-flex items-center gap-1.5 rounded-full border border-orbit-line/60 px-2.5 py-1
-                   text-xs transition hover:bg-white/5 disabled:opacity-60"
+            class="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-orbit-line/60
+                   px-2.5 py-1 text-xs transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-60"
             :class="stateClass(info.state)"
             :disabled="!!acting"
             title="Change node state"
@@ -130,7 +122,7 @@ onBeforeUnmount(() => document.removeEventListener('click', closeMenu))
               v-for="action in NODE_ACTIONS"
               :key="action.state"
               type="button"
-              class="block w-full rounded-lg px-3 py-2 text-left transition
+              class="block w-full cursor-pointer rounded-lg px-3 py-2 text-left transition
                      hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-40"
               :disabled="!!acting || isNoop(action)"
               @click="applyState(action)"
@@ -149,11 +141,11 @@ onBeforeUnmount(() => document.removeEventListener('click', closeMenu))
       <UiCard class="mt-3">
         <div class="flex items-center justify-between gap-3 border-b border-orbit-line/60 px-5 py-3.5">
           <h3 class="text-sm font-medium text-white">Resources</h3>
-          <UiLabel>Usage</UiLabel>
+          <span class="block text-[11px] uppercase tracking-wider text-orbit-muted">Usage</span>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-3">
           <div class="px-5 py-4">
-            <UiLabel>CPU</UiLabel>
+            <span class="block text-[11px] uppercase tracking-wider text-orbit-muted">CPU</span>
             <p class="mt-2 text-2xl font-semibold tracking-tight text-white tabular-nums">
               {{ cpu.pct }}<span class="text-base font-normal text-orbit-muted">%</span>
             </p>
@@ -166,7 +158,7 @@ onBeforeUnmount(() => document.removeEventListener('click', closeMenu))
           </div>
 
           <div class="border-t border-orbit-line/60 px-5 py-4 sm:border-l sm:border-t-0">
-            <UiLabel>Memory</UiLabel>
+            <span class="block text-[11px] uppercase tracking-wider text-orbit-muted">Memory</span>
             <p class="mt-2 text-2xl font-semibold tracking-tight text-white tabular-nums">
               {{ memory.pct == null ? '—' : memory.pct }}<span v-if="memory.pct != null" class="text-base font-normal text-orbit-muted">%</span>
             </p>
@@ -180,7 +172,7 @@ onBeforeUnmount(() => document.removeEventListener('click', closeMenu))
           </div>
 
           <div class="border-t border-orbit-line/60 px-5 py-4 sm:border-l sm:border-t-0">
-            <UiLabel>Disk</UiLabel>
+            <span class="block text-[11px] uppercase tracking-wider text-orbit-muted">Disk</span>
             <p class="mt-2 text-2xl font-semibold tracking-tight text-white tabular-nums">{{ fmtSize(info.disk) }}</p>
             <p class="mt-5 text-xs text-orbit-muted">Temporary storage per node</p>
           </div>
@@ -195,11 +187,11 @@ onBeforeUnmount(() => document.removeEventListener('click', closeMenu))
       <UiCard class="mt-3">
         <div class="flex items-center justify-between gap-3 border-b border-orbit-line/60 px-5 py-3.5">
           <h3 class="text-sm font-medium text-white">System</h3>
-          <UiLabel>Node</UiLabel>
+          <span class="block text-[11px] uppercase tracking-wider text-orbit-muted">Node</span>
         </div>
         <dl class="grid grid-cols-1 sm:grid-cols-2">
           <div v-for="(fact, i) in facts" :key="fact.label" :class="cellClass(i)">
-            <UiLabel as="dt">{{ fact.label }}</UiLabel>
+            <dt class="block text-[11px] uppercase tracking-wider text-orbit-muted">{{ fact.label }}</dt>
             <dd class="mt-1 break-all text-sm text-white">{{ fact.value }}</dd>
           </div>
         </dl>

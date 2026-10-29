@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="jsx">
 definePageMeta({ middleware: 'console-auth', layout: 'console', title: 'Nodes' })
 
 const route = useRoute()
@@ -25,8 +25,23 @@ const groups = computed(() => {
     }))
 })
 
+const nodeHeaders = ['Node', 'State', 'CPU', 'Load', 'Memory', 'Disk', 'GRES']
+const nodeWidths = ['', 'w-24', 'w-20', 'w-20', 'w-32', 'hidden w-20 xl:table-cell', 'hidden w-32 xl:table-cell']
+
 function openNode(node) {
   return navigateTo(`/console/${backendId}/nodes/${encodeURIComponent(node.name)}`)
+}
+
+function nodeCells(node) {
+  return [
+    <span class="block max-w-full truncate font-medium text-white" title={node.name}>{node.name}</span>,
+    <span class={['block max-w-full truncate', stateClass(node.state)]}>{fmt(node.state)}</span>,
+    <span title={`${node.idleCpus} idle`}>{node.allocCpus}/{node.cpus}</span>,
+    fmtLoad(node.cpuLoad),
+    `${fmtSize(node.freeMem)} / ${fmtSize(node.realMemory)}`,
+    fmtSize(node.disk),
+    fmt(node.gres)
+  ]
 }
 
 async function load() {
@@ -54,37 +69,15 @@ onMounted(refresh)
           <span class="text-xs text-orbit-muted">{{ group.nodes.length }} nodes</span>
         </div>
         <UiCard class="overflow-x-auto">
-          <table class="w-full min-w-[520px] table-fixed text-left text-sm">
-            <thead>
-              <tr class="border-b border-orbit-line text-[11px] uppercase tracking-wider text-orbit-muted">
-                <th class="px-3 py-3 font-medium">Node</th>
-                <th class="w-24 px-3 py-3 font-medium">State</th>
-                <th class="w-20 px-3 py-3 font-medium">CPU</th>
-                <th class="w-20 px-3 py-3 font-medium">Load</th>
-                <th class="w-32 px-3 py-3 font-medium">Memory</th>
-                <th class="hidden w-20 px-3 py-3 font-medium xl:table-cell">Disk</th>
-                <th class="hidden w-32 px-3 py-3 font-medium xl:table-cell">GRES</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr
-                v-for="node in group.nodes"
-                :key="node.name"
-                class="cursor-pointer border-b border-orbit-line/50 last:border-0 hover:bg-white/5"
-                @click="openNode(node)"
-              >
-                <td class="truncate px-3 py-3 font-medium text-white" :title="node.name">{{ node.name }}</td>
-                <td class="truncate px-3 py-3" :class="stateClass(node.state)">{{ fmt(node.state) }}</td>
-                <td class="px-3 py-3 text-orbit-muted" :title="`${node.idleCpus} idle`">{{ node.allocCpus }}/{{ node.cpus }}</td>
-                <td class="px-3 py-3 text-orbit-muted">{{ fmtLoad(node.cpuLoad) }}</td>
-                <td class="truncate px-3 py-3 text-orbit-muted">{{ fmtSize(node.freeMem) }} / {{ fmtSize(node.realMemory) }}</td>
-                <td class="hidden px-3 py-3 text-orbit-muted xl:table-cell">{{ fmtSize(node.disk) }}</td>
-                <td class="hidden truncate px-3 py-3 text-orbit-muted xl:table-cell" :title="fmt(node.gres)">
-                  {{ fmt(node.gres) }}
-                </td>
-              </tr>
-            </tbody>
-          </table>
+          <UiTable class="min-w-[520px]" :widths="nodeWidths" :headers="nodeHeaders">
+            <UiTableRow
+              v-for="node in group.nodes"
+              :key="node.name"
+              class="cursor-pointer"
+              :cells="nodeCells(node)"
+              @click="openNode(node)"
+            />
+          </UiTable>
         </UiCard>
       </section>
       <p v-if="!groups.length" class="py-8 text-center text-sm text-orbit-muted">No nodes</p>

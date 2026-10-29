@@ -67,19 +67,19 @@ onMounted(refresh)
             Slurm {{ backend.slurmVersion }}
           </span>
         </div>
-        <UiLabel>Cluster</UiLabel>
+        <span class="block text-[11px] uppercase tracking-wider text-orbit-muted">Cluster</span>
       </div>
 
       <div class="grid grid-cols-1 border-t border-orbit-line/60 sm:grid-cols-3">
         <div class="px-5 py-4">
-          <UiLabel>Partitions</UiLabel>
+          <span class="block text-[11px] uppercase tracking-wider text-orbit-muted">Partitions</span>
           <p class="mt-2 text-2xl font-semibold tracking-tight text-white tabular-nums">
             {{ partitions.length }}
           </p>
         </div>
 
         <div class="border-t border-orbit-line/60 px-5 py-4 sm:border-l sm:border-t-0">
-          <UiLabel>Nodes</UiLabel>
+          <span class="block text-[11px] uppercase tracking-wider text-orbit-muted">Nodes</span>
           <p class="mt-2 text-2xl font-semibold tracking-tight text-white tabular-nums">
             {{ nodes.total }}
           </p>
@@ -105,7 +105,7 @@ onMounted(refresh)
         </div>
 
         <div class="border-t border-orbit-line/60 px-5 py-4 sm:border-l sm:border-t-0">
-          <UiLabel>Jobs</UiLabel>
+          <span class="block text-[11px] uppercase tracking-wider text-orbit-muted">Jobs</span>
           <p class="mt-2 text-2xl font-semibold tracking-tight text-white tabular-nums">
             {{ jobs.total }}
           </p>
@@ -134,22 +134,22 @@ onMounted(refresh)
       </div>
       <dl class="grid grid-cols-1 sm:grid-cols-2">
         <div class="px-5 py-3.5">
-          <UiLabel as="dt">Hostname</UiLabel>
+          <dt class="block text-[11px] uppercase tracking-wider text-orbit-muted">Hostname</dt>
           <dd class="mt-1 break-all text-sm text-white">{{ fmt(backend.hostname) }}</dd>
         </div>
         <div class="border-t border-orbit-line/60 px-5 py-3.5 sm:border-l sm:border-t-0">
-          <UiLabel as="dt">Run as</UiLabel>
+          <dt class="block text-[11px] uppercase tracking-wider text-orbit-muted">Run as</dt>
           <dd class="mt-1 break-all text-sm text-white">
             {{ fmt(backend.username) }}
             <span class="ml-1.5 text-xs text-orbit-muted">{{ isRoot ? 'root privileges' : 'standard user' }}</span>
           </dd>
         </div>
         <div class="border-t border-orbit-line/60 px-5 py-3.5">
-          <UiLabel as="dt">Agent version</UiLabel>
+          <dt class="block text-[11px] uppercase tracking-wider text-orbit-muted">Agent version</dt>
           <dd class="mt-1 text-sm text-white tabular-nums">{{ fmt(backend.version) }}</dd>
         </div>
         <div class="border-t border-orbit-line/60 px-5 py-3.5 sm:border-l">
-          <UiLabel as="dt">Node version</UiLabel>
+          <dt class="block text-[11px] uppercase tracking-wider text-orbit-muted">Node version</dt>
           <dd class="mt-1 text-sm text-white tabular-nums">{{ fmt(backend.node) }}</dd>
         </div>
       </dl>

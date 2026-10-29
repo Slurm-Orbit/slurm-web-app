@@ -21,7 +21,7 @@ function enter(entry, id) {
       <BackdropBinaryField />
     </div>
 
-    <div class="relative z-10 flex min-h-full w-full flex-col px-5 py-6 sm:px-10 sm:py-8">
+    <div class="relative z-10 mx-auto flex min-h-full w-full max-w-4xl flex-col px-5 py-6 sm:px-10 sm:py-8">
       <header class="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
         <div class="flex min-w-0 items-center gap-3">
           <img src="/icon.svg" alt="" class="h-8 w-8 shrink-0 brightness-0 invert opacity-90">
@@ -80,17 +80,17 @@ function enter(entry, id) {
             <UiCard
               v-for="(entry, id) in gateway"
               :key="id"
-              class="relative flex w-full flex-col overflow-hidden p-5 text-left transition-shadow duration-200
+              class="relative flex flex-col overflow-hidden p-5 text-left transition-shadow duration-200
                      hover:shadow-[0_0_0_1px_rgba(220,220,230,0.35),0_12px_40px_rgba(200,205,220,0.22)]"
             >
               <div class="mb-4 flex items-start justify-between gap-3">
                 <div>
-                  <UiLabel>Agent</UiLabel>
+                  <span class="block text-[11px] uppercase tracking-wider text-orbit-muted">Agent</span>
                   <h3 class="mt-1 text-lg font-semibold tracking-tight text-white">{{ id }}</h3>
                 </div>
               </div>
 
-              <UiLabel as="label" class="mb-1" :for="`pw-${id}`">Access key</UiLabel>
+              <label class="mb-1 block text-[11px] uppercase tracking-wider text-orbit-muted" :for="`pw-${id}`">Access key</label>
               <UiInput
                 :id="`pw-${id}`"
                 v-model="entry.password"
@@ -105,7 +105,7 @@ function enter(entry, id) {
 
               <button
                 type="button"
-                class="mt-auto flex w-full items-center justify-between border-t border-orbit-line pt-4
+                class="mt-auto flex w-full cursor-pointer items-center justify-between border-t border-orbit-line pt-4
                        text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50"
                 :disabled="!entry.password"
                 @click="enter(entry, id)"

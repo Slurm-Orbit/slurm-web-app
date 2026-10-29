@@ -112,11 +112,11 @@ onUnmounted(() => {
     <UiCard class="mt-3 flex min-h-0 flex-1 flex-col">
       <div class="flex items-center justify-between gap-3 border-b border-orbit-line/60 px-5 py-3.5">
         <h3 class="text-sm font-medium text-white">Script</h3>
-        <UiLabel>Job</UiLabel>
+        <span class="block text-[11px] uppercase tracking-wider text-orbit-muted">Job</span>
       </div>
 
       <div class="flex min-h-0 flex-1 flex-col px-5 py-4">
-        <UiLabel as="label" class="mb-1" for="job-file">File path</UiLabel>
+        <label class="mb-1 block text-[11px] uppercase tracking-wider text-orbit-muted" for="job-file">File path</label>
         <UiInput
           id="job-file"
           v-model="fileName"
@@ -126,7 +126,7 @@ onUnmounted(() => {
           :disabled="submitting"
         />
 
-        <UiLabel as="label" class="mb-1 mt-4">Content</UiLabel>
+        <label class="mb-1 mt-4 block text-[11px] uppercase tracking-wider text-orbit-muted">Content</label>
         <div
           ref="editorHost"
           class="min-h-64 flex-1 overflow-hidden rounded-xl border border-orbit-line transition focus-within:border-orbit-accent/50"

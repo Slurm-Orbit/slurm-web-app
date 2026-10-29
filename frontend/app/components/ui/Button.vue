@@ -12,7 +12,7 @@ const variants = {
 <template>
   <button
     type="button"
-    class="rounded-xl border bg-orbit-card px-4 py-2 text-sm transition disabled:opacity-50"
+    class="cursor-pointer rounded-xl border bg-orbit-card px-4 py-2 text-sm transition disabled:cursor-not-allowed disabled:opacity-50"
     :class="variants[props.variant] || variants.default"
   >
     <slot />

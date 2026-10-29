@@ -244,7 +244,7 @@ onMounted(refresh)
       </div>
       <div class="flex flex-wrap items-center gap-1.5">
         <template v-if="isJobPending(job)">
-          <UiChip v-if="!isJobHeld(job)" tone="warn" :disabled="!!acting" @click="holdJob(job)">Hold</UiChip>
+          <UiChip v-if="!job.hold" tone="warn" :disabled="!!acting" @click="holdJob(job)">Hold</UiChip>
           <UiChip v-else tone="ok" :disabled="!!acting" @click="releaseJob(job)">Release</UiChip>
         </template>
         <UiChip tone="danger" :disabled="!!acting" @click="cancelJob(job)">Cancel</UiChip>
@@ -282,7 +282,7 @@ onMounted(refresh)
       <UiCard class="mt-3">
         <div class="flex items-center justify-between gap-3 border-b border-orbit-line/60 px-5 py-3.5">
           <h3 class="text-sm font-medium text-white">Live usage</h3>
-          <UiLabel>Monitoring</UiLabel>
+          <span class="block text-[11px] uppercase tracking-wider text-orbit-muted">Monitoring</span>
         </div>
 
         <UiAlert v-if="statsError">{{ statsError }}</UiAlert>
@@ -290,7 +290,7 @@ onMounted(refresh)
         <template v-else-if="stats">
           <div class="grid grid-cols-1 sm:grid-cols-2">
             <div class="px-5 py-4">
-              <UiLabel>CPU utilization</UiLabel>
+              <span class="block text-[11px] uppercase tracking-wider text-orbit-muted">CPU utilization</span>
               <p class="mt-2 text-2xl font-semibold tracking-tight text-white tabular-nums">
                 {{ statsCpuPct == null ? '—' : statsCpuPct }}<span v-if="statsCpuPct != null" class="text-base font-normal text-orbit-muted">%</span>
               </p>
@@ -303,7 +303,7 @@ onMounted(refresh)
             </div>
 
             <div class="border-t border-orbit-line/60 px-5 py-4 sm:border-l sm:border-t-0">
-              <UiLabel>Peak memory</UiLabel>
+              <span class="block text-[11px] uppercase tracking-wider text-orbit-muted">Peak memory</span>
               <p class="mt-2 text-2xl font-semibold tracking-tight text-white tabular-nums">
                 {{ statsMemPct == null ? '—' : statsMemPct }}<span v-if="statsMemPct != null" class="text-base font-normal text-orbit-muted">%</span>
               </p>
@@ -318,7 +318,7 @@ onMounted(refresh)
 
           <dl class="grid grid-cols-1 border-t border-orbit-line/60 sm:grid-cols-2 lg:grid-cols-4">
             <div v-for="(field, i) in statCards" :key="field.label" :class="statCellClass(i)">
-              <UiLabel as="dt">{{ field.label }}</UiLabel>
+              <dt class="block text-[11px] uppercase tracking-wider text-orbit-muted">{{ field.label }}</dt>
               <dd class="mt-1 break-all text-sm text-white tabular-nums">{{ field.value }}</dd>
             </div>
           </dl>
@@ -338,7 +338,7 @@ onMounted(refresh)
             class="flex items-baseline justify-between gap-4 px-5 py-2.5"
             :class="i > 0 && 'border-t border-orbit-line/40'"
           >
-            <UiLabel as="dt" class="shrink-0">{{ field.label }}</UiLabel>
+            <dt class="shrink-0 block text-[11px] uppercase tracking-wider text-orbit-muted">{{ field.label }}</dt>
             <dd class="min-w-0 break-all text-right text-sm text-white">{{ field.value }}</dd>
           </div>
         </dl>
@@ -348,7 +348,7 @@ onMounted(refresh)
     <section v-if="outputItems.length" class="mt-6">
       <div class="mb-3 flex items-baseline justify-between gap-3">
         <h3 class="text-sm font-medium text-white">Output</h3>
-        <UiLabel>Files</UiLabel>
+        <span class="block text-[11px] uppercase tracking-wider text-orbit-muted">Files</span>
       </div>
 
       <div class="space-y-3">
