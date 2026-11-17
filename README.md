@@ -105,4 +105,4 @@ Theme colors live in the `@theme` block of `frontend/app/assets/css/main.css` as
 
 ## License
 
-[Apache License 2.0](./LICENSE)
+[MIT](./LICENSE)
